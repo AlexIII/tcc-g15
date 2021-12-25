@@ -1,16 +1,16 @@
 # Thermal Control Center for Dell G15 5515
 
-Open-source alternative to AWCC*.
+Open-source alternative to AWCC*
 
-[Download link](releases) *(Note: requres ro be run as administrator)*
+[Download link](https://github.com/AlexIII/tcc-g15/releases/download/1.0.0/Thermal.Control.Center.v1.0.0.exe) *(Note: requires to be run as administrator)*
+
+<img width=600 src="./screen-1.png" />
 
 Tested only for Dell G15 5515. May also work on other Dell G15 notebooks.
 
 Please report if it worked / didn't work for you. Your feedback is highly appreciated.
 
 **AWCC - "Alienware Control Center" is an app for thermal control that Dell ships with their G-series notebooks*
-
-<img width=600 src="./screen-1.png" />
 
 ## What it can do
 
@@ -26,13 +26,13 @@ Please report if it worked / didn't work for you. Your feedback is highly apprec
 
 ## Why AWCC is BAD
 
-- ❌ AWCC has no in-proram option to enable/disable G-mode
-- ❌ AWCC manual fan control is broken as for now
+- ❌ AWCC has no in-program option to enable/disable G-mode
+- ❌ AWCC manual fan control is broken as per this moment
 - ❌ AWCC is bulky, slow and visually noisy app that can't even handle basic functions
 - ❌ AWCC is spying on you. [Details](#on-awcc-telemetry)
 - ❌ AWCC sometimes randomly crashes and throws crash reports
 
-If this alternative works for you, you can safely remove these from your PC
+If this alternative works out for you, you can safely remove from your PC:
 
 - Alieanware CC Components
 - Alieanware Command Center Suite
@@ -46,7 +46,7 @@ I'll implement these things if the project receives sufficient number of stars*
 - Save settings between restarts (20x ⭐)
 - Autorun on system startup option (30x ⭐)
 - "Target temperature mode" - automatically control the fans to maintain user-specified GPU/CPU temperature (40x ⭐)
-- proper Windows installer (50x ⭐)
+- Proper Windows installer (50x ⭐)
 
 *or maybe I'll do it regardless, who knows
 
@@ -58,19 +58,19 @@ Tested with Dell G15 5515 on Windows 10
 
 It is a PyQt based GUI for WMI Dell thermal control interface.
 
-I somewhat documented my findings on the WMI [here](#awcc-telemetry)
+I somewhat documented my findings on the WMI [here](WMI-AWCC-doc.md)
 
-## How to run from source
+## How to run from the source
 
 ```
 python3 -m pip install -r ./requirements.txt
 python3 tcc-g15.py
 ```
 
-## On AWCC Telemetry
+## About the AWCC telemetry
 
-I know, It's probably not gonna surprise anyone, giving the times we're living in, 
-but AWCC silently sends telemetry out-of-the-box without the possibility of opting-out.
+I know it's probably not gonna surprise anyone, giving the times we're living in, 
+but AWCC silently sends some telemetry without the possibility of opting-out.
 
 The telemetry is being sent to these URLs
 
