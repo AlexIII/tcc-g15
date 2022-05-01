@@ -147,7 +147,15 @@ class TCC_GUI(QtWidgets.QWidget):
             ): 
                 self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
                 print('Fail-safe tripped!')
-
+            
+            if self._failsafeOn and self._modeSwitch.getChecked() != ThermalMode.Balanced.value and (
+                ((gpuTemp is None) or
+                (gpuTemp < self.FAILSAFE_GPU_TEMP)) and
+                ((cpuTemp is None) or
+                (cpuTemp < self.FAILSAFE_CPU_TEMP))
+            ): 
+                self._modeSwitch.setChecked(ThermalMode.Balanced.value)
+                print("Fail-safe has been reset...")
             
         self._periodicTask = QPeriodic(self, self.TEMP_UPD_PERIOS_MS, updateOutput)
         updateOutput()
