@@ -2,9 +2,11 @@
 
 Open-source alternative to AWCC*
 
-[Download link](https://github.com/AlexIII/tcc-g15/releases/download/1.0.0/Thermal.Control.Center.v1.0.0.exe) *(Note: requires to be run as administrator)*
+[Download link](https://github.com/AlexIII/tcc-g15/releases/download/1.0.0/Thermal.Control.Center.v1.0.0.exe) *(Note: the app requires to be run as administrator)*
 
 <img width=600 src="./screen-1.png" />
+
+<img src="./screen-2.png" />
 
 Tested only for Dell G15 5515. May also work on other Dell G15 notebooks.
 
@@ -42,7 +44,7 @@ If this alternative works out for you, you can safely remove from your PC:
 
 I'll implement these things if the project receives sufficient number of stars*
 
-- Minimize to tray (10x ⭐)
+- ✔️ Minimize to tray (10x ⭐)
 - Save settings between restarts (20x ⭐)
 - Autorun on system startup option (30x ⭐)
 - "Target temperature mode" - automatically control the fans to maintain user-specified GPU/CPU temperature (40x ⭐)

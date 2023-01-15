@@ -6,6 +6,7 @@ from Backend.AWCCThermal import AWCCThermal, NoAWCCWMIClass, CannotInstAWCCWMI
 from GUI.QRadioButtonSet import QRadioButtonSet
 from GUI.AppColors import Colors
 from GUI.ThermalUnitWidget import ThermalUnitWidget
+from GUI.QGageTrayIcon import QGageTrayIcon
 
 GUI_ICON = 'icons/gaugeIcon.png'
 
@@ -47,9 +48,12 @@ class TCC_GUI(QtWidgets.QWidget):
     FAILSAFE_CPU_TEMP = 95
     FAILSAFE_GPU_TEMP = 85
     APP_NAME = "Thermal Control Center for Dell G15 5515"
-    APP_VERSION = "1.0.0"
+    APP_VERSION = "1.1.0"
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
     APP_URL = "github.com/AlexIII/tcc-g15"
+
+    GPU_COLOR_LIMITS = (72, 85)
+    CPU_COLOR_LIMITS = (85, 95)
 
     def __init__(self, awcc: AWCCThermal):
         super().__init__()
@@ -64,12 +68,30 @@ class TCC_GUI(QtWidgets.QWidget):
             alert("About", f"{self.APP_NAME} v{self.APP_VERSION}", f"{self.APP_DESCRIPTION}\n{self.APP_URL}")
         )
 
+        # Set up tray icon
+        trayIcon = QGageTrayIcon((self.GPU_COLOR_LIMITS, self.CPU_COLOR_LIMITS))
+        menu = QtWidgets.QMenu()
+        showAction = menu.addAction("Show")
+        showAction.triggered.connect(self.showNormal)
+        exitAction = menu.addAction("Exit")
+        exitAction.triggered.connect(self.close)
+        tray = QtWidgets.QSystemTrayIcon(self)
+        tray.setIcon(trayIcon)
+        tray.setContextMenu(menu)
+        tray.show()
+
+        def onTrayIconActivated(trigger):
+            if trigger == QtWidgets.QSystemTrayIcon.ActivationReason.DoubleClick:
+                self.showNormal()
+                self.activateWindow()
+        self.connect(tray, QtCore.SIGNAL("activated(QSystemTrayIcon::ActivationReason)"), onTrayIconActivated)
+
         # Set up GUI
         self.setObjectName('QMainWindow')
         self.setWindowTitle(self.APP_NAME)
 
-        self._thermalGPU = ThermalUnitWidget(self, 'GPU', tempMinMax= (0, 95), tempColorLimits= (72, 85), fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
-        self._thermalCPU = ThermalUnitWidget(self, 'CPU', tempMinMax= (0, 110), tempColorLimits= (85, 95), fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
+        self._thermalGPU = ThermalUnitWidget(self, 'GPU', tempMinMax= (0, 95), tempColorLimits= self.GPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
+        self._thermalCPU = ThermalUnitWidget(self, 'CPU', tempMinMax= (0, 110), tempColorLimits= self.CPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
 
         lTherm = QtWidgets.QHBoxLayout()
         lTherm.addWidget(self._thermalGPU)
@@ -148,6 +170,9 @@ class TCC_GUI(QtWidgets.QWidget):
                 self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
                 print('Fail-safe tripped!')
 
+            # Update tray icon
+            trayIcon.update((gpuTemp, cpuTemp))
+            tray.setIcon(trayIcon)
             
         self._periodicTask = QPeriodic(self, self.TEMP_UPD_PERIOS_MS, updateOutput)
         updateOutput()
@@ -158,9 +183,19 @@ class TCC_GUI(QtWidgets.QWidget):
 
     def closeEvent(self, event):
         self._periodicTask.stop()
+        prevMode = self._modeSwitch.getChecked()
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
-        alert("Mode changed", "Thermal mode has been reset to Balanced")
+        if prevMode != ThermalMode.Balanced.value:
+            alert("Mode changed", "Thermal mode has been reset to Balanced")
         event.accept()
+
+    def changeEvent(self, event):
+        # Intercept minimize event, hide window instead
+        if event.type() == QtCore.QEvent.WindowStateChange and self.windowState() & QtCore.Qt.WindowMinimized:
+            event.ignore()
+            self.hide()
+            return
+        super().changeEvent(event)
 
     def testWMIsupport(self):
         try:
@@ -168,7 +203,7 @@ class TCC_GUI(QtWidgets.QWidget):
         except: 
             pass
 
-def runApp():
+def runApp() -> int:
     app = QtWidgets.QApplication([])
 
     # Setup backend
