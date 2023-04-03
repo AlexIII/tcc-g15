@@ -45,7 +45,7 @@ If this alternative works out for you, you can safely remove from your PC:
 I'll implement these things if the project receives sufficient number of stars*
 
 - ✔️ Minimize to tray (10x ⭐)
-- Save settings between restarts (20x ⭐)
+- ✔️ Save settings between restarts (20x ⭐)
 - Autorun on system startup option (30x ⭐)
 - "Target temperature mode" - automatically control the fans to maintain user-specified GPU/CPU temperature (40x ⭐)
 - Proper Windows installer (50x ⭐)

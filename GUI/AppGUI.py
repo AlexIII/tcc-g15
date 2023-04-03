@@ -38,6 +38,11 @@ class ThermalMode(Enum):
     Custom = 'Custom'
     Balanced = 'Balanced'
     G_Mode = 'G_Mode'
+    
+class SettingsKey(Enum):
+    Mode = "app/mode"
+    CPUFanSpeed = "app/fan/cpu/speed"
+    GPUFanSpeed = "app/fan/gpu/speed"
 
 def errorExit(message: str, message2: str = None) -> None:
     alert("Oh-oh", message, message2, QtWidgets.QMessageBox.Icon.Critical)
@@ -48,7 +53,7 @@ class TCC_GUI(QtWidgets.QWidget):
     FAILSAFE_CPU_TEMP = 95
     FAILSAFE_GPU_TEMP = 85
     APP_NAME = "Thermal Control Center for Dell G15 5515"
-    APP_VERSION = "1.1.0"
+    APP_VERSION = "1.2.0"
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
     APP_URL = "github.com/AlexIII/tcc-g15"
 
@@ -58,6 +63,8 @@ class TCC_GUI(QtWidgets.QWidget):
     def __init__(self, awcc: AWCCThermal):
         super().__init__()
         self._awcc = awcc
+
+        self.settings = QtCore.QSettings(self.APP_URL, "AWCC")
 
         # Set main window props
         self.setFixedSize(600, 0)
@@ -139,10 +146,6 @@ class TCC_GUI(QtWidgets.QWidget):
             print(f'Set mode {val}: ' + ('ok' if res else 'fail'))
             if not res:
                 errorExit(f"Failed to set mode {val}", "Program is terminated")
-            self._thermalGPU.blockSignals(True)
-            self._thermalGPU.setSpeedSlider()
-            self._thermalCPU.setSpeedSlider()
-            self._thermalGPU.blockSignals(False)
             updateFanSpeed()
 
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
@@ -181,7 +184,20 @@ class TCC_GUI(QtWidgets.QWidget):
         self._thermalGPU.speedSliderChanged(updateFanSpeed)
         self._thermalCPU.speedSliderChanged(updateFanSpeed)
 
+        # Restore saved settings
+        savedMode = self.settings.value(SettingsKey.Mode.value)
+        if savedMode: self._modeSwitch.setChecked(savedMode)
+        savedSpeed = self.settings.value(SettingsKey.CPUFanSpeed.value)
+        self._thermalCPU.setSpeedSlider(savedSpeed)
+        savedSpeed = self.settings.value(SettingsKey.GPUFanSpeed.value)
+        self._thermalGPU.setSpeedSlider(savedSpeed)
+
     def closeEvent(self, event):
+        # Save settings
+        self.settings.setValue(SettingsKey.Mode.value, self._modeSwitch.getChecked())
+        self.settings.setValue(SettingsKey.CPUFanSpeed.value, self._thermalCPU.getSpeedSlider())
+        self.settings.setValue(SettingsKey.GPUFanSpeed.value, self._thermalGPU.getSpeedSlider())
+        # Set mode to Balanced before exit
         self._periodicTask.stop()
         prevMode = self._modeSwitch.getChecked()
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
