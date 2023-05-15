@@ -2,7 +2,7 @@
 
 Open-source alternative to AWCC*
 
-[Download link](https://github.com/AlexIII/tcc-g15/releases/download/1.0.0/Thermal.Control.Center.v1.0.0.exe) *(Note: the app requires to be run as administrator)*
+[Download link](https://github.com/AlexIII/tcc-g15/releases) *(Note: the app requires to be run as administrator)*
 
 <img width=600 src="./screen-1.png" />
 
