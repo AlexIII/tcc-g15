@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, time
 from enum import Enum
 from typing import Callable, Literal
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -52,6 +52,7 @@ class TCC_GUI(QtWidgets.QWidget):
     TEMP_UPD_PERIOD_MS = 1000
     FAILSAFE_CPU_TEMP = 95
     FAILSAFE_GPU_TEMP = 85
+    FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC = 60
     APP_NAME = "Thermal Control Center for Dell G15 5515"
     APP_VERSION = "1.2.0"
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
@@ -60,6 +61,11 @@ class TCC_GUI(QtWidgets.QWidget):
     # Green to Yellow and Yellow to Red thresholds
     GPU_COLOR_LIMITS = (72, 85)
     CPU_COLOR_LIMITS = (85, 95)
+
+    # private
+    _failsafeTempIsHighTs = 0
+    _failsafeTrippedPrevModeStr = None
+    _failsafeOn = True
 
     def __init__(self, awcc: AWCCThermal):
         super().__init__()
@@ -111,17 +117,37 @@ class TCC_GUI(QtWidgets.QWidget):
             ('Custom', ThermalMode.Custom.value)
         ])
 
-        self._failsafeCB = QtWidgets.QCheckBox("Fail-safe")
-        self._failsafeCB.setToolTip(f"Switch to G-mode (fans on max) when GPU temp reaches {self.FAILSAFE_GPU_TEMP}°C or CPU reaches {self.FAILSAFE_CPU_TEMP}°C")
-        self._failsafeOn = True
+        # Fail-safe indicator
+        failsafeIndicator = QtWidgets.QLabel()
+        def updFailsafeIndicator() -> None:
+            color = Colors.GREEN.value if self._failsafeOn else Colors.DARK_GREY.value
+            msg = "Normal"
+            if self._failsafeTempIsHighTs > 0: # Fail-safe have tripped at some point in the past
+                color = Colors.YELLOW.value
+                timeStr = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self._failsafeTempIsHighTs))
+                msg = f"Last high temp at {timeStr}"
+                if self._failsafeTrippedPrevModeStr is not None: # Fail-safe is in tripped state now
+                    color = Colors.RED.value
+
+            failsafeIndicator.setStyleSheet(f"QLabel {{ max-height: 14px; max-width: 14px; border: 1px solid {Colors.GREY.value}; border-radius: 7px; background: {color}; }}")
+            failsafeIndicator.setToolTip(msg)
+        updFailsafeIndicator()
+
+        # Fail-safe checkbox
+        _failsafeCB = QtWidgets.QCheckBox("Fail-safe")
+        _failsafeCB.setToolTip(f"Switch to G-mode (fans on max) when GPU temp reaches {self.FAILSAFE_GPU_TEMP}°C or CPU reaches {self.FAILSAFE_CPU_TEMP}°C")
         def onFailsafeCB():
-            self._failsafeOn = self._failsafeCB.isChecked()
-        self._failsafeCB.toggled.connect(onFailsafeCB)
-        self._failsafeCB.setChecked(True)
+            self._failsafeOn = _failsafeCB.isChecked()
+            self._failsafeTempIsHighTs = 0
+            self._failsafeTrippedPrevModeStr = None
+            updFailsafeIndicator()
+        _failsafeCB.toggled.connect(onFailsafeCB)
+        _failsafeCB.setChecked(True)
 
         modeBox = QtWidgets.QHBoxLayout()
         modeBox.addWidget(self._modeSwitch, alignment= QtCore.Qt.AlignLeft)
-        modeBox.addWidget(self._failsafeCB, alignment= QtCore.Qt.AlignRight)
+        modeBox.addWidget(_failsafeCB, alignment= QtCore.Qt.AlignRight)
+        modeBox.addWidget(failsafeIndicator)
 
         mainLayout = QtWidgets.QVBoxLayout(self)
         mainLayout.addLayout(lTherm)
@@ -130,7 +156,7 @@ class TCC_GUI(QtWidgets.QWidget):
         mainLayout.setContentsMargins(10, 0, 10, 0)
 
         # Glue GUI to backend
-        def setFanSpeed(fan: Literal['GPU', 'CPU'], speed: int):
+        def setFanSpeed(fan: Literal['GPU', 'CPU'], speed: int) -> None:
             res = self._awcc.setFanSpeed(self._awcc.GPUFanIdx if fan == 'GPU' else self._awcc.CPUFanIdx, speed)
             print(f'Set {fan} fan speed to {speed}: ' + ('ok' if res else 'fail'))
 
@@ -148,6 +174,9 @@ class TCC_GUI(QtWidgets.QWidget):
             if not res:
                 errorExit(f"Failed to set mode {val}", "Program is terminated")
             updateFanSpeed()
+            if val != ThermalMode.G_Mode.value:
+                self._failsafeTrippedPrevModeStr = None # In case the mode was switched manually
+            updFailsafeIndicator()
 
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
         onModeChange(ThermalMode.Balanced.value)
@@ -165,14 +194,29 @@ class TCC_GUI(QtWidgets.QWidget):
             # print(gpuTemp, gpuRPM, cpuTemp, cpuRPM)
 
             # Handle fail-safe
-            if self._failsafeOn and self._modeSwitch.getChecked() != ThermalMode.G_Mode.value and (
-                (gpuTemp is None) or
-                (gpuTemp >= self.FAILSAFE_GPU_TEMP) or
-                (cpuTemp is None) or
-                (cpuTemp >= self.FAILSAFE_CPU_TEMP)
-            ): 
+            tempIsHigh = (
+                (gpuTemp is None) or (gpuTemp >= self.FAILSAFE_GPU_TEMP) or
+                (cpuTemp is None) or (cpuTemp >= self.FAILSAFE_CPU_TEMP)
+            )
+            
+            if tempIsHigh:
+                self._failsafeTempIsHighTs = time.time()
+
+            if (self._failsafeOn and 
+                self._modeSwitch.getChecked() != ThermalMode.G_Mode.value and
+                tempIsHigh
+            ):
+                self._failsafeTrippedPrevModeStr = self._modeSwitch.getChecked()
                 self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
-                print('Fail-safe tripped!')
+                print('Fail-safe tripped')
+
+            # Auto-reset failsafe
+            if (self._failsafeTrippedPrevModeStr is not None and
+                time.time() - self._failsafeTempIsHighTs > self.FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC
+            ):
+                self._modeSwitch.setChecked(self._failsafeTrippedPrevModeStr)
+                self._failsafeTrippedPrevModeStr = None
+                print('Fail-safe reset')
 
             # Update tray icon
             trayIcon.update((gpuTemp, cpuTemp))
