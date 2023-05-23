@@ -6,7 +6,7 @@ from Backend.AWCCThermal import AWCCThermal, NoAWCCWMIClass, CannotInstAWCCWMI
 from GUI.QRadioButtonSet import QRadioButtonSet
 from GUI.AppColors import Colors
 from GUI.ThermalUnitWidget import ThermalUnitWidget
-from GUI.QGageTrayIcon import QGageTrayIcon
+from GUI.QGaugeTrayIcon import QGaugeTrayIcon
 
 GUI_ICON = 'icons/gaugeIcon.png'
 
@@ -49,7 +49,7 @@ def errorExit(message: str, message2: str = None) -> None:
     sys.exit(1)
 
 class TCC_GUI(QtWidgets.QWidget):
-    TEMP_UPD_PERIOS_MS = 1000
+    TEMP_UPD_PERIOD_MS = 1000
     FAILSAFE_CPU_TEMP = 95
     FAILSAFE_GPU_TEMP = 85
     APP_NAME = "Thermal Control Center for Dell G15 5515"
@@ -57,6 +57,7 @@ class TCC_GUI(QtWidgets.QWidget):
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
     APP_URL = "github.com/AlexIII/tcc-g15"
 
+    # Green to Yellow and Yellow to Red thresholds
     GPU_COLOR_LIMITS = (72, 85)
     CPU_COLOR_LIMITS = (85, 95)
 
@@ -76,7 +77,7 @@ class TCC_GUI(QtWidgets.QWidget):
         )
 
         # Set up tray icon
-        trayIcon = QGageTrayIcon((self.GPU_COLOR_LIMITS, self.CPU_COLOR_LIMITS))
+        trayIcon = QGaugeTrayIcon((self.GPU_COLOR_LIMITS, self.CPU_COLOR_LIMITS))
         menu = QtWidgets.QMenu()
         showAction = menu.addAction("Show")
         showAction.triggered.connect(self.showNormal)
@@ -177,9 +178,9 @@ class TCC_GUI(QtWidgets.QWidget):
             trayIcon.update((gpuTemp, cpuTemp))
             tray.setIcon(trayIcon)
             
-        self._periodicTask = QPeriodic(self, self.TEMP_UPD_PERIOS_MS, updateOutput)
+        self._updateGaugesTask = QPeriodic(self, self.TEMP_UPD_PERIOD_MS, updateOutput)
         updateOutput()
-        self._periodicTask.start()
+        self._updateGaugesTask.start()
         
         self._thermalGPU.speedSliderChanged(updateFanSpeed)
         self._thermalCPU.speedSliderChanged(updateFanSpeed)
@@ -198,7 +199,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self.settings.setValue(SettingsKey.CPUFanSpeed.value, self._thermalCPU.getSpeedSlider())
         self.settings.setValue(SettingsKey.GPUFanSpeed.value, self._thermalGPU.getSpeedSlider())
         # Set mode to Balanced before exit
-        self._periodicTask.stop()
+        self._updateGaugesTask.stop()
         prevMode = self._modeSwitch.getChecked()
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
         if prevMode != ThermalMode.Balanced.value:

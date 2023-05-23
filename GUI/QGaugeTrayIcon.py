@@ -2,7 +2,7 @@ from typing import *
 from PySide6 import QtCore, QtGui
 from GUI.AppColors import Colors
 
-class QGageTrayIcon(QtGui.QPixmap):
+class QGaugeTrayIcon(QtGui.QPixmap):
     _SIZE = (16, 16)
 
     def __init__(self, tempColorLimits: Optional[Tuple[Tuple[int,int], Tuple[int,int]]]) -> None:
