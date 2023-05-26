@@ -42,7 +42,9 @@ class ThermalMode(Enum):
 class SettingsKey(Enum):
     Mode = "app/mode"
     CPUFanSpeed = "app/fan/cpu/speed"
+    CPUThresholdTemp = "app/fan/cpu/threshold_temp"
     GPUFanSpeed = "app/fan/gpu/speed"
+    GPUThresholdTemp = "app/fan/gpu/threshold_temp"
 
 def errorExit(message: str, message2: str = None) -> None:
     alert("Oh-oh", message, message2, QtWidgets.QMessageBox.Icon.Critical)
@@ -54,7 +56,7 @@ class TCC_GUI(QtWidgets.QWidget):
     FAILSAFE_GPU_TEMP = 85
     FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC = 60
     APP_NAME = "Thermal Control Center for Dell G15 5515"
-    APP_VERSION = "1.2.0"
+    APP_VERSION = "1.3.0"
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
     APP_URL = "github.com/AlexIII/tcc-g15"
 
@@ -129,9 +131,26 @@ class TCC_GUI(QtWidgets.QWidget):
                 if self._failsafeTrippedPrevModeStr is not None: # Fail-safe is in tripped state now
                     color = Colors.RED.value
 
-            failsafeIndicator.setStyleSheet(f"QLabel {{ max-height: 14px; max-width: 14px; border: 1px solid {Colors.GREY.value}; border-radius: 7px; background: {color}; }}")
+            failsafeIndicator.setStyleSheet(f"QLabel {{ min-height: 14px; min-width: 14px; max-height: 14px; max-width: 14px; border: 1px solid {Colors.GREY.value}; border-radius: 7px; background: {color}; }}")
             failsafeIndicator.setToolTip(msg)
         updFailsafeIndicator()
+
+        # Fail-safe temp limits
+        self._limitTempGPU = QtWidgets.QComboBox()
+        self._limitTempGPU.addItems(list(map(lambda v: str(v), range(30, 91))))
+        self._limitTempGPU.setToolTip("Threshold GPU temp")
+        self._limitTempCPU = QtWidgets.QComboBox()
+        self._limitTempCPU.addItems(list(map(lambda v: str(v), range(30, 101))))
+        self._limitTempCPU.setToolTip("Threshold CPU temp")
+        def onLimitGPUChange():
+            val = self._limitTempGPU.currentText()
+            if val.isdigit(): self.FAILSAFE_GPU_TEMP = int(val)
+        self._limitTempGPU.currentIndexChanged.connect(onLimitGPUChange)
+        def onLimitCPUChange():
+            val = self._limitTempCPU.currentText()
+            if val.isdigit(): self.FAILSAFE_CPU_TEMP = int(val)
+        self._limitTempCPU.currentIndexChanged.connect(onLimitCPUChange)
+
 
         # Fail-safe checkbox
         _failsafeCB = QtWidgets.QCheckBox("Fail-safe")
@@ -144,10 +163,16 @@ class TCC_GUI(QtWidgets.QWidget):
         _failsafeCB.toggled.connect(onFailsafeCB)
         _failsafeCB.setChecked(True)
 
+        failsafeBox = QtWidgets.QHBoxLayout()
+        failsafeBox.addWidget(_failsafeCB)
+        failsafeBox.addWidget(self._limitTempGPU)
+        failsafeBox.addWidget(self._limitTempCPU)
+        failsafeBox.addWidget(failsafeIndicator)
+
         modeBox = QtWidgets.QHBoxLayout()
         modeBox.addWidget(self._modeSwitch, alignment= QtCore.Qt.AlignLeft)
-        modeBox.addWidget(_failsafeCB, alignment= QtCore.Qt.AlignRight)
-        modeBox.addWidget(failsafeIndicator)
+        modeBox.addWidget(QtWidgets.QWidget(), alignment= QtCore.Qt.AlignRight) # Insert dummy Widget in order to move the following 'failsafeBox' to the right side
+        modeBox.addLayout(failsafeBox)
 
         mainLayout = QtWidgets.QVBoxLayout(self)
         mainLayout.addLayout(lTherm)
@@ -208,7 +233,7 @@ class TCC_GUI(QtWidgets.QWidget):
             ):
                 self._failsafeTrippedPrevModeStr = self._modeSwitch.getChecked()
                 self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
-                print('Fail-safe tripped')
+                print(f'Fail-safe tripped at GPU={gpuTemp} CPU={cpuTemp}')
 
             # Auto-reset failsafe
             if (self._failsafeTrippedPrevModeStr is not None and
@@ -229,19 +254,10 @@ class TCC_GUI(QtWidgets.QWidget):
         self._thermalGPU.speedSliderChanged(updateFanSpeed)
         self._thermalCPU.speedSliderChanged(updateFanSpeed)
 
-        # Restore saved settings
-        savedMode = self.settings.value(SettingsKey.Mode.value)
-        if savedMode: self._modeSwitch.setChecked(savedMode)
-        savedSpeed = self.settings.value(SettingsKey.CPUFanSpeed.value)
-        self._thermalCPU.setSpeedSlider(savedSpeed)
-        savedSpeed = self.settings.value(SettingsKey.GPUFanSpeed.value)
-        self._thermalGPU.setSpeedSlider(savedSpeed)
+        self._loadAppSettings()
 
     def closeEvent(self, event):
-        # Save settings
-        self.settings.setValue(SettingsKey.Mode.value, self._modeSwitch.getChecked())
-        self.settings.setValue(SettingsKey.CPUFanSpeed.value, self._thermalCPU.getSpeedSlider())
-        self.settings.setValue(SettingsKey.GPUFanSpeed.value, self._thermalGPU.getSpeedSlider())
+        self._saveAppSettings()
         # Set mode to Balanced before exit
         self._updateGaugesTask.stop()
         prevMode = self._modeSwitch.getChecked()
@@ -249,6 +265,25 @@ class TCC_GUI(QtWidgets.QWidget):
         if prevMode != ThermalMode.Balanced.value:
             alert("Mode changed", "Thermal mode has been reset to Balanced")
         event.accept()
+
+    def _saveAppSettings(self):
+        self.settings.setValue(SettingsKey.Mode.value, self._modeSwitch.getChecked())
+        self.settings.setValue(SettingsKey.CPUFanSpeed.value, self._thermalCPU.getSpeedSlider())
+        self.settings.setValue(SettingsKey.GPUFanSpeed.value, self._thermalGPU.getSpeedSlider())
+        self.settings.setValue(SettingsKey.CPUThresholdTemp.value, self.FAILSAFE_CPU_TEMP)
+        self.settings.setValue(SettingsKey.GPUThresholdTemp.value, self.FAILSAFE_GPU_TEMP)
+
+    def _loadAppSettings(self):
+        savedMode = self.settings.value(SettingsKey.Mode.value)
+        if savedMode is not None: self._modeSwitch.setChecked(savedMode)
+        savedSpeed = self.settings.value(SettingsKey.CPUFanSpeed.value)
+        self._thermalCPU.setSpeedSlider(savedSpeed)
+        savedSpeed = self.settings.value(SettingsKey.GPUFanSpeed.value)
+        self._thermalGPU.setSpeedSlider(savedSpeed)
+        savedTemp = self.settings.value(SettingsKey.CPUThresholdTemp.value)
+        if savedTemp is not None: self._limitTempCPU.setCurrentText(str(savedTemp))
+        savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value)
+        if savedTemp is not None: self._limitTempGPU.setCurrentText(str(savedTemp))
 
     def changeEvent(self, event):
         # Intercept minimize event, hide window instead
@@ -292,7 +327,16 @@ def runApp() -> int:
         QToolTip {{
             background-color: black; 
             color: {Colors.WHITE.value};
-            border: black solid 1px
+            border: 1px solid {Colors.DARK_GREY.value};
+            border-radius: 3;
+        }}
+        QComboBox {{
+            border: 1px solid gray;
+            border-radius: 3px;
+            padding: 1px 0.6em 1px 3px;
+        }}
+        QComboBox::disabled {{
+            color: {Colors.GREY.value};
         }}
     """)
 
