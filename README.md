@@ -4,7 +4,7 @@ Open-source alternative to AWCC*
 
 [Download link](https://github.com/AlexIII/tcc-g15/releases) *(Note: the app requires to be run as administrator)*
 
-<img width=600 src="./screen-1.png" />
+<img src="./screen-1.png" />
 
 <img src="./screen-2.png" />
 
@@ -47,7 +47,7 @@ I'll implement these things if the project receives sufficient number of stars*
 - ✔️ Minimize to tray (10x ⭐)
 - ✔️ Save settings between restarts (20x ⭐)
 - [[see issue](https://github.com/AlexIII/tcc-g15/issues/7)] Autorun on system startup option (30x ⭐)
-- [interferes with the build-in fan regulator] ~~"Target temperature mode" - automatically control the fans to maintain user-specified GPU/CPU temperature (40x ⭐)~~
+- [interferes with the build-in fan regulator] ~~"Target temperature mode" - automatically control the fans to maintain user-specified GPU/CPU temperature~~
 - ✔️ Adjustable fail-safe threshold temperature, drop out of fail-safe mode after the temperature returns to normal (40x ⭐)
 - Proper Windows installer (50x ⭐)
 
