@@ -24,7 +24,7 @@ Please report if it worked / didn't work for you. Your feedback is highly apprec
 ## Limitations
 
 - Requires Admin system privileges (in order to access WMI interface) 
-- Manual fan contoll is not *really* manual. If you set fan speed too low the BIOS will takeover and raise the fan speed automatically when the GPU/CPU themerrature reaches certain point to prevent overheating. 
+- Manual fan contoll is not *really* manual. If you set fan speed too low the BIOS will takeover and raise the fan speed automatically when the GPU/CPU temperature reaches certain point to prevent overheating. 
 
 ## Why AWCC is BAD
 
