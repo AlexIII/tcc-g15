@@ -1,4 +1,4 @@
-# Thermal Control Center for Dell G15 5515
+# Thermal Control Center for Dell G15 5515 / 5511 / 5525
 
 Open-source alternative to AWCC*
 
@@ -8,7 +8,7 @@ Open-source alternative to AWCC*
 
 <img src="./screen-2.png" />
 
-Tested only for Dell G15 5515. May also work on other Dell G15 notebooks.
+Tested for Dell G15 5515, 5511, 5525 _(big thanks to @T7imal and @cemkaya-mpi for testing and debugging!)_. May also work on other Dell G15 notebooks.
 
 Please report if it worked / didn't work for you. Your feedback is highly appreciated.
 
@@ -49,13 +49,14 @@ I'll implement these things if the project receives sufficient number of stars*
 - [[see issue](https://github.com/AlexIII/tcc-g15/issues/7)] Autorun on system startup option (30x ⭐)
 - [interferes with the build-in fan regulator] ~~"Target temperature mode" - automatically control the fans to maintain user-specified GPU/CPU temperature~~
 - ✔️ Adjustable fail-safe threshold temperature, drop out of fail-safe mode after the temperature returns to normal (40x ⭐)
+- ✔️ Patch for G15 5511 / 5525
 - Proper Windows installer (50x ⭐)
 
 *or maybe I'll do it regardless, who knows.
 
 ## Target platfom
 
-Tested with Dell G15 5515 on Windows 10.
+Tested with Dell G15 5515, 5511, 5525 on Windows 10/11.
 
 ## How it works
 

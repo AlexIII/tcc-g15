@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 import wmi # type: ignore
 
 class AWCCWmiWrapper:
@@ -12,6 +12,9 @@ class AWCCWmiWrapper:
         Custom = 0
         Balanced = 0x97
         G_Mode = 0xAB
+
+    _balancedModePatch = None # type: Optional[Union[False, int]]
+    _USTT_Balanced = 0xA0
 
     def __init__(self, awcc: wmi._wmi_object) -> None:
         self._awcc = awcc
@@ -65,8 +68,17 @@ class AWCCWmiWrapper:
     def ApplyThermalMode(self, mode: ThermalMode) -> bool:
         if not isinstance(mode, self.ThermalMode):
             raise Exception('Invalid argument: mode is not instance of ThermalMode')
-        arg = ((mode.value & 0xFF) << 8) | 1
-        return self._call('Thermal_Control', arg) == 0
+        value = mode.value
+
+        # Patch balanced mode value for laptops with USTT support
+        if mode == self.ThermalMode.Balanced:
+            if self._balancedModePatch is None:
+                self._balancedModePatch = self._USTT_Balanced if self._Thermal_Control(self._USTT_Balanced) else False
+                print(f'Balanced mode patch: {self._balancedModePatch}')
+            if isinstance(self._balancedModePatch, int):
+                value = self._balancedModePatch
+
+        return self._Thermal_Control(value)
 
     def SetAddonSpeedPercent(self, fanId: int, speed: int) -> bool:
         if not (fanId in range(self.FAN_ID_FIRST, self.FAN_ID_LAST + 1)): return False
@@ -74,6 +86,9 @@ class AWCCWmiWrapper:
         arg = ((speed & 0xFF) << 16) | ((fanId & 0xFF) << 8) | 2
         return self._call('Thermal_Control', arg) == 0
 
+    def _Thermal_Control(self, arg: int) -> bool:
+        arg = ((arg & 0xFF) << 8) | 1
+        return self._call('Thermal_Control', arg) == 0
         
     def _call(self, method: str, arg: int) -> Optional[int]:
         if not hasattr(self._awcc, method) or not callable(getattr(self._awcc, method)):
