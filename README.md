@@ -50,7 +50,7 @@ I'll implement these things if the project receives sufficient number of stars*
 - [interferes with the build-in fan regulator] ~~"Target temperature mode" - automatically control the fans to maintain user-specified GPU/CPU temperature~~
 - ✔️ Adjustable fail-safe threshold temperature, drop out of fail-safe mode after the temperature returns to normal (40x ⭐)
 - ✔️ Patch for G15 5511 / 5525
-- Proper Windows installer (50x ⭐)
+- ✔️ Proper Windows installer (50x ⭐)
 
 *or maybe I'll do it regardless, who knows.
 
