@@ -1,4 +1,4 @@
-# Thermal Control Center for Dell G15 5515 / 5511 / 5525
+# Thermal Control Center for Dell G15 5515 / 5511 / 5525 / 5530
 
 Open-source alternative to AWCC*
 
@@ -8,7 +8,7 @@ Open-source alternative to AWCC*
 
 <img src="./screen-2.png" />
 
-Tested for Dell G15 5515, 5511, 5525 _(big thanks to @T7imal and @cemkaya-mpi for testing and debugging!)_. May also work on other Dell G15 notebooks.
+Tested for Dell G15 5515, 5511, 5525, 5530 _(big thanks to @T7imal and @cemkaya-mpi for testing and debugging!)_. May also work on other Dell G15 notebooks.
 
 Please report if it worked / didn't work for you. Your feedback is highly appreciated.
 
@@ -55,7 +55,7 @@ I'll implement these things if the project receives sufficient number of stars*
 
 ## Target platform
 
-Tested with Dell G15 5515, 5511, 5525 on Windows 10/11.
+Tested with Dell G15 5515, 5511, 5525, 5530 on Windows 10/11.
 
 ## How it works
 
