@@ -27,7 +27,8 @@ def main():
     except:
         errorExit("Another instance of this app is already running")
         return 1
-    return runApp()
+    startMinimized = "--minimized" in sys.argv
+    return runApp(startMinimized)
 
 if __name__ == "__main__":
     print("Starting")

@@ -301,7 +301,7 @@ class TCC_GUI(QtWidgets.QWidget):
         except: 
             pass
 
-def runApp() -> int:
+def runApp(startMinimized = False) -> int:
     app = QtWidgets.QApplication([])
 
     # Setup backend
@@ -342,5 +342,6 @@ def runApp() -> int:
         }}
     """)
 
-    mainWindow.show()
+    if not startMinimized:
+        mainWindow.show()
     return app.exec()

@@ -54,7 +54,7 @@ I'll implement these things if the project receives sufficient number of stars*
 
 *or maybe I'll do it regardless, who knows.
 
-## Target platfom
+## Target platform
 
 Tested with Dell G15 5515, 5511, 5525 on Windows 10/11.
 
@@ -83,7 +83,7 @@ https://tm-sdk.platinumai.net
 https://qa-external-tm.plawebsvc01.net
 ```
 
-## Licence
+## License
 
 © github.com/AlexIII
 
