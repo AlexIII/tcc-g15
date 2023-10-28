@@ -47,6 +47,8 @@ class SettingsKey(Enum):
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
 
 def errorExit(message: str, message2: str = None) -> None:
+    if not QtWidgets.QApplication.instance():
+         QtWidgets.QApplication([])
     alert("Oh-oh", message, message2, QtWidgets.QMessageBox.Icon.Critical)
     sys.exit(1)
 
