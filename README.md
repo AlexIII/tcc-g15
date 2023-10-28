@@ -46,8 +46,7 @@ I'll implement these things if the project receives sufficient number of stars*
 
 - ✔️ Minimize to tray (10x ⭐)
 - ✔️ Save settings between restarts (20x ⭐)
-- [[see issue](https://github.com/AlexIII/tcc-g15/issues/7)] Autorun on system startup option (30x ⭐)
-- [interferes with the build-in fan regulator] ~~"Target temperature mode" - automatically control the fans to maintain user-specified GPU/CPU temperature~~
+- ✔️ Autorun on system startup option (30x ⭐)
 - ✔️ Adjustable fail-safe threshold temperature, drop out of fail-safe mode after the temperature returns to normal (40x ⭐)
 - ✔️ Patch for G15 5511 / 5525
 - ✔️ Proper Windows installer (50x ⭐)
