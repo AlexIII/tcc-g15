@@ -13,7 +13,18 @@ GUI_ICON = 'icons/gaugeIcon.png'
 def resourcePath(relativePath: str = '.'):
     return os.path.join(sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.abspath('.'), relativePath)
 
-def alert(title: str, message: str, message2: str = None, type: QtWidgets.QMessageBox.Icon = QtWidgets.QMessageBox.Icon.Information) -> None:
+def autorunTask(action: Literal['add', 'remove']):
+    addCmd = f'schtasks /create /xml "{resourcePath("tcc_g15_task.xml")}" /tn "TCC_G15"'
+    removeCmd = 'schtasks /delete /tn "TCC_G15" /f'
+    cmd = addCmd if action == 'add' else removeCmd
+    res = os.system(cmd)
+    if res != 0:
+        print(f'Failed to {action} autorun task. Error: {res}. Command: {cmd}')
+        alert("Error", f"Failed to {action} autorun task (maybe it's already been done before)", QtWidgets.QMessageBox.Icon.Critical)
+    else:
+        alert("Success", f"Autorun on system startup {'Enabled' if action == 'add' else 'Disabled'}")
+
+def alert(title: str, message: str, type: QtWidgets.QMessageBox.Icon = QtWidgets.QMessageBox.Icon.Information, *, message2: str = None) -> None:
         msg = QtWidgets.QMessageBox()
         msg.setWindowIcon(QtGui.QIcon(resourcePath(GUI_ICON)))
         msg.setIcon(type)
@@ -49,7 +60,7 @@ class SettingsKey(Enum):
 def errorExit(message: str, message2: str = None) -> None:
     if not QtWidgets.QApplication.instance():
          QtWidgets.QApplication([])
-    alert("Oh-oh", message, message2, QtWidgets.QMessageBox.Icon.Critical)
+    alert("Oh-oh", message, QtWidgets.QMessageBox.Icon.Critical, message2 = message2)
     sys.exit(1)
 
 class TCC_GUI(QtWidgets.QWidget):
@@ -83,7 +94,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self.setWindowIcon(QtGui.QIcon(resourcePath(GUI_ICON)))
         self.mouseReleaseEvent = lambda evt: (
             evt.button() == QtCore.Qt.RightButton and
-            alert("About", f"{self.APP_NAME} v{self.APP_VERSION}", f"{self.APP_DESCRIPTION}\n{self.APP_URL}")
+            alert("About", f"{self.APP_NAME} v{self.APP_VERSION}", message2 = f"{self.APP_DESCRIPTION}\n{self.APP_URL}")
         )
 
         # Set up tray icon
@@ -93,6 +104,10 @@ class TCC_GUI(QtWidgets.QWidget):
         showAction.triggered.connect(self.showNormal)
         exitAction = menu.addAction("Exit")
         exitAction.triggered.connect(self.close)
+        addToAutorunAction = menu.addAction("Enable autorun")
+        addToAutorunAction.triggered.connect(lambda: autorunTask('add'))
+        removeFromAutorunAction = menu.addAction("Disable autorun")
+        removeFromAutorunAction.triggered.connect(lambda: autorunTask('remove'))
         tray = QtWidgets.QSystemTrayIcon(self)
         tray.setIcon(trayIcon)
         tray.setContextMenu(menu)
