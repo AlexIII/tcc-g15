@@ -68,7 +68,7 @@ I somewhat documented my findings on the WMI [here](WMI-AWCC-doc.md).
 
 ```
 python3 -m pip install -r ./requirements.txt
-python3 tcc-g15.py
+python3 src\tcc-g15.py
 ```
 
 ## About the AWCC telemetry
