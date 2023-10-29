@@ -38,7 +38,7 @@
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>"C:\Program Files (x86)\Thermal Control Center\tcc-g15.exe"</Command>
+      <Command>"<!--EXE_FILE_PATH-->"</Command>
       <Arguments>--minimized</Arguments>
     </Exec>
   </Actions>

@@ -14,16 +14,25 @@ def resourcePath(relativePath: str = '.'):
     return os.path.join(sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.abspath('.'), relativePath)
 
 def autorunTask(action: Literal['add', 'remove']) -> int:
-    addCmd = f'schtasks /create /xml "{resourcePath("tcc_g15_task.xml")}" /tn "TCC_G15"'
+    taskXmlFilePath = resourcePath("tcc_g15_task.xml")
+
+    addCmd = f'schtasks /create /xml "{taskXmlFilePath}" /tn "TCC_G15"'
     removeCmd = 'schtasks /delete /tn "TCC_G15" /f'
-    patchExePathCmd = f'schtasks /change /tn "TCC_G15" /TR "\'{os.path.abspath(sys.argv[0])}\' --minimized" /RU ""'
+
     if action == 'add':
+        # Patch program path in the xml file
+        exeFile = os.path.abspath(sys.argv[0])
+        if exeFile.endswith('.exe'):
+            with open(taskXmlFilePath, 'r') as f:
+                xml = f.read()
+            xml = xml.replace('<!--EXE_FILE_PATH-->', exeFile)
+            with open(taskXmlFilePath, 'w') as f:
+                f.write(xml)
+        else:
+            return -100
+        
         os.system(removeCmd)
-        err = os.system(addCmd)
-        if err != 0: return err
-        err = os.system(patchExePathCmd)
-        if err != 0: return err
-        return 0
+        return os.system(addCmd)
     else:
         return os.system(removeCmd)
 
@@ -109,7 +118,7 @@ class TCC_GUI(QtWidgets.QWidget):
         def autorunTaskRun(action: Literal['add', 'remove']) -> None:
             err = autorunTask(action)
             if err != 0 and action == 'add':
-                alert("Error", f"Failed to {action} autorun task (maybe it's already been done before)", QtWidgets.QMessageBox.Icon.Critical)
+                alert("Error", f"Failed to {action} autorun task. Error={err}", QtWidgets.QMessageBox.Icon.Critical)
             else:
                 alert("Success", f"Autorun on system startup {'Enabled' if action == 'add' else 'Disabled'}")
             # When in minimized state, a wired bug causes the app to close if we won't touch some of the `self.show*()` methods
@@ -372,7 +381,8 @@ def runApp(startMinimized = False) -> int:
     """)
 
     if startMinimized:
-        mainWindow.changeEvent(QtCore.Qt.WindowMinimized)
+        mainWindow.showMinimized()
+        mainWindow.hide()
     else:
         mainWindow.show()
 
