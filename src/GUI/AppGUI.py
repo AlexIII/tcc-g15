@@ -69,7 +69,7 @@ class TCC_GUI(QtWidgets.QWidget):
     FAILSAFE_GPU_TEMP = 85
     FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC = 60
     APP_NAME = "Thermal Control Center for Dell G15 5515"
-    APP_VERSION = "1.5.0"
+    APP_VERSION = "1.5.1"
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
     APP_URL = "github.com/AlexIII/tcc-g15"
 
@@ -102,12 +102,18 @@ class TCC_GUI(QtWidgets.QWidget):
         menu = QtWidgets.QMenu()
         showAction = menu.addAction("Show")
         showAction.triggered.connect(self.showNormal)
+        addToAutorunAction = menu.addAction("Enable autorun")
+        def autorunTaskRun(action: Literal['add', 'remove']) -> None:
+            autorunTask(action)
+            # When in minimized state, a wired bug causes the app to close if we won't touch some of the `self.show*()` methods
+            if self.isMinimized():
+                self.showMinimized()
+                self.hide()
+        addToAutorunAction.triggered.connect(lambda: autorunTaskRun('add'))
+        removeFromAutorunAction = menu.addAction("Disable autorun")
+        removeFromAutorunAction.triggered.connect(lambda: autorunTaskRun('remove'))
         exitAction = menu.addAction("Exit")
         exitAction.triggered.connect(self.close)
-        addToAutorunAction = menu.addAction("Enable autorun")
-        addToAutorunAction.triggered.connect(lambda: autorunTask('add'))
-        removeFromAutorunAction = menu.addAction("Disable autorun")
-        removeFromAutorunAction.triggered.connect(lambda: autorunTask('remove'))
         tray = QtWidgets.QSystemTrayIcon(self)
         tray.setIcon(trayIcon)
         tray.setContextMenu(menu)
@@ -303,11 +309,12 @@ class TCC_GUI(QtWidgets.QWidget):
         if savedTemp is not None: self._limitTempGPU.setCurrentText(str(savedTemp))
 
     def changeEvent(self, event):
-        # Intercept minimize event, hide window instead
-        if event.type() == QtCore.QEvent.WindowStateChange and self.windowState() & QtCore.Qt.WindowMinimized:
-            event.ignore()
-            self.hide()
-            return
+        # Intercept minimize event, hide window
+        if event.type() == QtCore.QEvent.WindowStateChange:
+            if self.windowState() & QtCore.Qt.WindowMinimized:
+                self.hide()
+            else:
+                self.show()
         super().changeEvent(event)
 
     def testWMIsupport(self):
@@ -357,6 +364,9 @@ def runApp(startMinimized = False) -> int:
         }}
     """)
 
-    if not startMinimized:
+    if startMinimized:
+        mainWindow.changeEvent(QtCore.Qt.WindowMinimized)
+    else:
         mainWindow.show()
+
     return app.exec()
