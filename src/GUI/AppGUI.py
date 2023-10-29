@@ -13,16 +13,19 @@ GUI_ICON = 'icons/gaugeIcon.png'
 def resourcePath(relativePath: str = '.'):
     return os.path.join(sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.abspath('.'), relativePath)
 
-def autorunTask(action: Literal['add', 'remove']):
+def autorunTask(action: Literal['add', 'remove']) -> int:
     addCmd = f'schtasks /create /xml "{resourcePath("tcc_g15_task.xml")}" /tn "TCC_G15"'
     removeCmd = 'schtasks /delete /tn "TCC_G15" /f'
-    cmd = addCmd if action == 'add' else removeCmd
-    res = os.system(cmd)
-    if res != 0:
-        print(f'Failed to {action} autorun task. Error: {res}. Command: {cmd}')
-        alert("Error", f"Failed to {action} autorun task (maybe it's already been done before)", QtWidgets.QMessageBox.Icon.Critical)
+    patchExePathCmd = f'schtasks /change /tn "TCC_G15" /TR "\'{os.path.abspath(sys.argv[0])}\' --minimized" /RU ""'
+    if action == 'add':
+        os.system(removeCmd)
+        err = os.system(addCmd)
+        if err != 0: return err
+        err = os.system(patchExePathCmd)
+        if err != 0: return err
+        return 0
     else:
-        alert("Success", f"Autorun on system startup {'Enabled' if action == 'add' else 'Disabled'}")
+        return os.system(removeCmd)
 
 def alert(title: str, message: str, type: QtWidgets.QMessageBox.Icon = QtWidgets.QMessageBox.Icon.Information, *, message2: str = None) -> None:
         msg = QtWidgets.QMessageBox()
@@ -104,7 +107,11 @@ class TCC_GUI(QtWidgets.QWidget):
         showAction.triggered.connect(self.showNormal)
         addToAutorunAction = menu.addAction("Enable autorun")
         def autorunTaskRun(action: Literal['add', 'remove']) -> None:
-            autorunTask(action)
+            err = autorunTask(action)
+            if err != 0 and action == 'add':
+                alert("Error", f"Failed to {action} autorun task (maybe it's already been done before)", QtWidgets.QMessageBox.Icon.Critical)
+            else:
+                alert("Success", f"Autorun on system startup {'Enabled' if action == 'add' else 'Disabled'}")
             # When in minimized state, a wired bug causes the app to close if we won't touch some of the `self.show*()` methods
             if self.isMinimized():
                 self.showMinimized()

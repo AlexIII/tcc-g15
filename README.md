@@ -23,8 +23,9 @@ Please report if it worked / didn't work for you. Your feedback is highly apprec
 
 ## Limitations
 
-- Requires Admin system privileges (in order to access WMI interface) 
-- Manual fan contoll is not *really* manual. If you set fan speed too low the BIOS will takeover and raise the fan speed automatically when the GPU/CPU temperature reaches certain point to prevent overheating. 
+- Requires Admin system privileges (in order to access WMI interface)
+- Manual fan contoll is not *really* manual. If you set fan speed too low the BIOS will takeover and raise the fan speed automatically when the GPU/CPU temperature reaches certain point to prevent overheating.
+- **"Autorun on startup" feature may not work for you.** The autorun adds a task to the Windows Task Scheduler that should start the app on first sign-in after a reboot, but it may fail to run the app due to the system's security policy. You can try other approaches to make the app to autostart on your system. [Checkout this issue.](https://github.com/AlexIII/tcc-g15/issues/7)
 
 ## Why AWCC is BAD
 
