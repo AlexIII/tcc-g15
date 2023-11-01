@@ -1,4 +1,4 @@
-# Thermal Control Center for Dell G15 5515 / 5511 / 5525 / 5530
+# Thermal Control Center for Dell G15 5511 / 5515 / 5520 / 5525 / 5530
 
 Open-source alternative to AWCC*
 
@@ -8,11 +8,19 @@ Open-source alternative to AWCC*
 
 <img src="./screen-2.png" />
 
-Tested for Dell G15 5515, 5511, 5525, 5530 _(big thanks to @T7imal and @cemkaya-mpi for testing and debugging!)_. May also work on other Dell G15 notebooks.
+**AWCC - "Alienware Control Center" is an app for thermal control that Dell ships with their G-series notebooks.*
+
+## Target platform
+
+OS: Windows 10/11.
+
+Supported Dell G15 models: 5511, 5515, 5520, 5525, 5530.
+
+May also work on other Dell G15 notebooks.
 
 Please report if it worked / didn't work for you. Your feedback is highly appreciated.
 
-**AWCC - "Alienware Control Center" is an app for thermal control that Dell ships with their G-series notebooks.*
+_Big thanks to @T7imal, @cemkaya-mpi, @THSLP13 for testing and debugging._
 
 ## What it can do
 
@@ -26,6 +34,7 @@ Please report if it worked / didn't work for you. Your feedback is highly apprec
 - Requires Admin system privileges (in order to access WMI interface)
 - Manual fan contoll is not *really* manual. If you set fan speed too low the BIOS will takeover and raise the fan speed automatically when the GPU/CPU temperature reaches certain point to prevent overheating.
 - **"Autorun on startup" feature may not work for you.** The autorun adds a task to the Windows Task Scheduler that should start the app on first sign-in after a reboot, but it may fail to run the app due to the system's security policy. You can try other approaches to make the app to autostart on your system. [Checkout this issue.](https://github.com/AlexIII/tcc-g15/issues/7)
+- On rare occasions, the driver may report bogus GPU temperature. [See this issue.](https://github.com/AlexIII/tcc-g15/issues/9)
 
 ## Why AWCC is BAD
 
@@ -53,10 +62,6 @@ I'll implement these things if the project receives sufficient number of stars*
 - ✔️ Proper Windows installer (50x ⭐)
 
 *or maybe I'll do it regardless, who knows.
-
-## Target platform
-
-Tested with Dell G15 5515, 5511, 5525, 5530 on Windows 10/11.
 
 ## How it works
 
