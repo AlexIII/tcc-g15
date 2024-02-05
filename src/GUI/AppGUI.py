@@ -68,7 +68,7 @@ class SettingsKey(Enum):
     CPUThresholdTemp = "app/fan/cpu/threshold_temp"
     GPUFanSpeed = "app/fan/gpu/speed"
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
-    exitValue = "app/exit"
+    MinimizeOnCloseFlag = "app/exit"
 
 def errorExit(message: str, message2: str = None) -> None:
     if not QtWidgets.QApplication.instance():
@@ -299,18 +299,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self._loadAppSettings()
 
     def closeEvent(self, event):
-        '''
-        self._saveAppSettings()
-        # Set mode to Balanced before exit
-        self._updateGaugesTask.stop()
-        prevMode = self._modeSwitch.getChecked()
-        self._modeSwitch.setChecked(ThermalMode.Balanced.value)
-        if prevMode != ThermalMode.Balanced.value:
-            alert("Mode changed", "Thermal mode has been reset to Balanced")
-        event.accept()
-        '''
-        
-        exit_value = self.settings.value(SettingsKey.exitValue.value)
+        exit_value = self.settings.value(SettingsKey.MinimizeOnCloseFlag.value)
         if exit_value == 1:
             self.onExit()
         elif exit_value == 2:
@@ -334,11 +323,11 @@ class TCC_GUI(QtWidgets.QWidget):
 
             if reply == QtWidgets.QMessageBox.Yes:
                 if cbClose.isChecked():
-                    self.settings.setValue(SettingsKey.exitValue.value, 1)
+                    self.settings.setValue(SettingsKey.MinimizeOnCloseFlag.value, 1)
                 self.onExit()
             else:
                 if cbClose.isChecked():
-                    self.settings.setValue(SettingsKey.exitValue.value, 2)
+                    self.settings.setValue(SettingsKey.MinimizeOnCloseFlag.value, 2)
                 event.ignore()
                 self.hide()
 
@@ -380,17 +369,6 @@ class TCC_GUI(QtWidgets.QWidget):
         reply = msg_box.exec_()
         if reply == QtWidgets.QMessageBox.Yes:
             self.settings.clear()
-
-    '''
-    def changeEvent(self, event):
-        # Intercept minimize event, hide window
-        if event.type() == QtCore.QEvent.WindowStateChange:
-            if self.windowState() & QtCore.Qt.WindowMinimized:
-                self.hide()
-            else:
-                self.show()
-        super().changeEvent(event)
-    '''
 
     def testWMIsupport(self):
         try:
