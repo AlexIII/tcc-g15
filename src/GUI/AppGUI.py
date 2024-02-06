@@ -1,6 +1,6 @@
 import sys, os, time
 from enum import Enum
-from typing import Callable, Literal
+from typing import Callable, Literal, Optional, Tuple
 from PySide6 import QtCore, QtGui, QtWidgets
 from Backend.AWCCThermal import AWCCThermal, NoAWCCWMIClass, CannotInstAWCCWMI
 from GUI.QRadioButtonSet import QRadioButtonSet
@@ -36,15 +36,28 @@ def autorunTask(action: Literal['add', 'remove']) -> int:
     else:
         return os.system(removeCmd)
 
-def alert(title: str, message: str, type: QtWidgets.QMessageBox.Icon = QtWidgets.QMessageBox.Icon.Information, *, message2: str = None) -> None:
-        msg = QtWidgets.QMessageBox()
+def alert(title: str, message: str, type: QtWidgets.QMessageBox.Icon = QtWidgets.QMessageBox.Icon.Information, *, message2: Optional[str] = None) -> None:
+        msg = QtWidgets.QMessageBox(type, title, message)
         msg.setWindowIcon(QtGui.QIcon(resourcePath(GUI_ICON)))
-        msg.setIcon(type)
-        msg.setWindowTitle(title)
-        msg.setText(message)
         if message2: msg.setInformativeText(message2)
         msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
         msg.exec()
+
+def confirm(title: str, message: str, options: Optional[Tuple[str, str]] = None, dontAskAgain: bool = False) -> Tuple[bool, Optional[bool]]:
+    msg = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Question, title, message, QtWidgets.QMessageBox.Yes |  QtWidgets.QMessageBox.No)
+    msg.setWindowIcon(QtGui.QIcon(resourcePath(GUI_ICON)))
+
+    if options is not None:
+        msg.button(QtWidgets.QMessageBox.Yes).setText(options[0])
+        msg.button(QtWidgets.QMessageBox.No).setText(options[1])
+
+    cbDontAskAgain = None
+    if dontAskAgain:
+        cbDontAskAgain = QtWidgets.QCheckBox('Don\'t ask me again.', msg)
+        msg.setCheckBox(cbDontAskAgain)
+
+    return (msg.exec_() == QtWidgets.QMessageBox.Yes, cbDontAskAgain is not None and cbDontAskAgain.isChecked() or None)
+
 
 class QPeriodic:
     def __init__(self, parent: QtCore.QObject, periodMs: int, callback: Callable) -> None:
@@ -68,8 +81,9 @@ class SettingsKey(Enum):
     CPUThresholdTemp = "app/fan/cpu/threshold_temp"
     GPUFanSpeed = "app/fan/gpu/speed"
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
+    MinimizeOnCloseFlag = "app/minimize_on_close_flag"
 
-def errorExit(message: str, message2: str = None) -> None:
+def errorExit(message: str, message2: Optional[str] = None) -> None:
     if not QtWidgets.QApplication.instance():
          QtWidgets.QApplication([])
     alert("Oh-oh", message, QtWidgets.QMessageBox.Icon.Critical, message2 = message2)
@@ -128,8 +142,10 @@ class TCC_GUI(QtWidgets.QWidget):
         addToAutorunAction.triggered.connect(lambda: autorunTaskRun('add'))
         removeFromAutorunAction = menu.addAction("Disable autorun")
         removeFromAutorunAction.triggered.connect(lambda: autorunTaskRun('remove'))
+        restoreAction = menu.addAction("Restore Default")
+        restoreAction.triggered.connect(self.clearAppSettings)
         exitAction = menu.addAction("Exit")
-        exitAction.triggered.connect(self.close)
+        exitAction.triggered.connect(self.onExit)
         tray = QtWidgets.QSystemTrayIcon(self)
         tray.setIcon(trayIcon)
         tray.setContextMenu(menu)
@@ -296,6 +312,24 @@ class TCC_GUI(QtWidgets.QWidget):
         self._loadAppSettings()
 
     def closeEvent(self, event):
+        minimizeOnClose = self.settings.value(SettingsKey.MinimizeOnCloseFlag.value)
+        if minimizeOnClose is None:
+            # minimizeOnClose is not set, prompt user
+            (toExit, dontAskAgain) = confirm("Exit", "Do you want to exit or minimize to tray?", ("Exit", "Minimize"), True)
+            minimizeOnClose = not toExit
+            if dontAskAgain:
+                self.settings.setValue(SettingsKey.MinimizeOnCloseFlag.value, minimizeOnClose)
+
+        if minimizeOnClose:
+            event.ignore()
+            self.hide()
+        else:
+            self.onExit()
+        return
+
+    # onExit() connected to systray_Exit
+    def onExit(self):
+        print("exit")
         self._saveAppSettings()
         # Set mode to Balanced before exit
         self._updateGaugesTask.stop()
@@ -303,7 +337,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
         if prevMode != ThermalMode.Balanced.value:
             alert("Mode changed", "Thermal mode has been reset to Balanced")
-        event.accept()
+        sys.exit(1)
 
     def _saveAppSettings(self):
         self.settings.setValue(SettingsKey.Mode.value, self._modeSwitch.getChecked())
@@ -324,20 +358,11 @@ class TCC_GUI(QtWidgets.QWidget):
         savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value)
         if savedTemp is not None: self._limitTempGPU.setCurrentText(str(savedTemp))
 
-    def changeEvent(self, event):
-        # Intercept minimize event, hide window
-        if event.type() == QtCore.QEvent.WindowStateChange:
-            if self.windowState() & QtCore.Qt.WindowMinimized:
-                self.hide()
-            else:
-                self.show()
-        super().changeEvent(event)
+    def clearAppSettings(self):
+        (isYes, _) = confirm("Reset to Default", "Do you want to reset all settings to default?", ("Reset", "Cancel"))
+        if isYes:
+            self.settings.clear()
 
-    def testWMIsupport(self):
-        try:
-            pass
-        except: 
-            pass
 
 def runApp(startMinimized = False) -> int:
     app = QtWidgets.QApplication([])
