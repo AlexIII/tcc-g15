@@ -68,6 +68,7 @@ class SettingsKey(Enum):
     CPUThresholdTemp = "app/fan/cpu/threshold_temp"
     GPUFanSpeed = "app/fan/gpu/speed"
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
+    MinimizeOnCloseFlag = "app/exit"
 
 def errorExit(message: str, message2: str = None) -> None:
     if not QtWidgets.QApplication.instance():
@@ -128,8 +129,10 @@ class TCC_GUI(QtWidgets.QWidget):
         addToAutorunAction.triggered.connect(lambda: autorunTaskRun('add'))
         removeFromAutorunAction = menu.addAction("Disable autorun")
         removeFromAutorunAction.triggered.connect(lambda: autorunTaskRun('remove'))
+        restoreAction = menu.addAction("Restore Default")
+        restoreAction.triggered.connect(self.clearAppSettings)
         exitAction = menu.addAction("Exit")
-        exitAction.triggered.connect(self.close)
+        exitAction.triggered.connect(self.onExit)
         tray = QtWidgets.QSystemTrayIcon(self)
         tray.setIcon(trayIcon)
         tray.setContextMenu(menu)
@@ -296,6 +299,41 @@ class TCC_GUI(QtWidgets.QWidget):
         self._loadAppSettings()
 
     def closeEvent(self, event):
+        exit_value = self.settings.value(SettingsKey.MinimizeOnCloseFlag.value)
+        if exit_value == 1:
+            self.onExit()
+        elif exit_value == 2:
+            event.ignore()
+            self.hide()
+        else:
+            msg_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Question, 'Exit',
+                                  "Do you want to exit or minimize to tray?", QtWidgets.QMessageBox.Yes |
+                                  QtWidgets.QMessageBox.No, self)
+
+            exit_button = msg_box.button(QtWidgets.QMessageBox.Yes)
+            exit_button.setText('Exit')
+
+            hide_button = msg_box.button(QtWidgets.QMessageBox.No)
+            hide_button.setText('Minimize')
+
+            cbClose = QtWidgets.QCheckBox('Don\'t ask me again.', self)
+            msg_box.setCheckBox(cbClose)
+
+            reply = msg_box.exec_()
+
+            if reply == QtWidgets.QMessageBox.Yes:
+                if cbClose.isChecked():
+                    self.settings.setValue(SettingsKey.MinimizeOnCloseFlag.value, 1)
+                self.onExit()
+            else:
+                if cbClose.isChecked():
+                    self.settings.setValue(SettingsKey.MinimizeOnCloseFlag.value, 2)
+                event.ignore()
+                self.hide()
+
+    # onExit() connected to systray_Exit
+    def onExit(self):
+        # print("exit")
         self._saveAppSettings()
         # Set mode to Balanced before exit
         self._updateGaugesTask.stop()
@@ -303,7 +341,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
         if prevMode != ThermalMode.Balanced.value:
             alert("Mode changed", "Thermal mode has been reset to Balanced")
-        event.accept()
+        sys.exit(1)
 
     def _saveAppSettings(self):
         self.settings.setValue(SettingsKey.Mode.value, self._modeSwitch.getChecked())
@@ -324,14 +362,13 @@ class TCC_GUI(QtWidgets.QWidget):
         savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value)
         if savedTemp is not None: self._limitTempGPU.setCurrentText(str(savedTemp))
 
-    def changeEvent(self, event):
-        # Intercept minimize event, hide window
-        if event.type() == QtCore.QEvent.WindowStateChange:
-            if self.windowState() & QtCore.Qt.WindowMinimized:
-                self.hide()
-            else:
-                self.show()
-        super().changeEvent(event)
+    def clearAppSettings(self):
+        msg_box = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Warning, 'Restore Default',
+                                  "Do you want to restore all settings to default?", QtWidgets.QMessageBox.Yes |
+                                  QtWidgets.QMessageBox.No, self)
+        reply = msg_box.exec_()
+        if reply == QtWidgets.QMessageBox.Yes:
+            self.settings.clear()
 
     def testWMIsupport(self):
         try:
