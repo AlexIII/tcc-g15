@@ -93,9 +93,10 @@ class TCC_GUI(QtWidgets.QWidget):
     TEMP_UPD_PERIOD_MS = 1000
     FAILSAFE_CPU_TEMP = 95
     FAILSAFE_GPU_TEMP = 85
+    FAILSAFE_TRIGGER_DELAY_SEC = 8
     FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC = 60
     APP_NAME = "Thermal Control Center for Dell G15"
-    APP_VERSION = "1.5.2"
+    APP_VERSION = "1.5.3"
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
     APP_URL = "github.com/AlexIII/tcc-g15"
 
@@ -104,8 +105,9 @@ class TCC_GUI(QtWidgets.QWidget):
     CPU_COLOR_LIMITS = (85, 95)
 
     # private
-    _failsafeTempIsHighTs = 0
-    _failsafeTrippedPrevModeStr = None
+    _failsafeTempIsHighTs = 0                           # Last time when the temp was registered to be high
+    _failsafeTempIsHighStartTs: Optional[int] = None    # Time when the temp first registered to be high (without going lower than the threshold)
+    _failsafeTrippedPrevModeStr: Optional[str] = None   # Mode (Custom, Balanced) before fail-safe tripped, as a string
     _failsafeOn = True
 
     def __init__(self, awcc: AWCCThermal):
@@ -113,6 +115,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self._awcc = awcc
 
         self.settings = QtCore.QSettings(self.APP_URL, "AWCC")
+        print(self.settings.fileName())
 
         # Set main window props
         self.setFixedSize(600, 0)
@@ -262,11 +265,13 @@ class TCC_GUI(QtWidgets.QWidget):
         onModeChange(ThermalMode.Balanced.value)
         self._modeSwitch.setOnChange(onModeChange)
 
-        def updateOutput():
+        def updateAppState():
+            # Get temps and RPMs
             gpuTemp = self._awcc.getFanRelatedTemp(self._awcc.GPUFanIdx)
             gpuRPM = self._awcc.getFanRPM(self._awcc.GPUFanIdx)
             cpuTemp = self._awcc.getFanRelatedTemp(self._awcc.CPUFanIdx)
             cpuRPM = self._awcc.getFanRPM(self._awcc.CPUFanIdx)
+            # Update UI gauges
             if gpuTemp is not None: self._thermalGPU.setTemp(gpuTemp)
             if gpuRPM is not None: self._thermalGPU.setFanRPM(gpuRPM)
             if cpuTemp is not None: self._thermalCPU.setTemp(cpuTemp)
@@ -282,9 +287,13 @@ class TCC_GUI(QtWidgets.QWidget):
             if tempIsHigh:
                 self._failsafeTempIsHighTs = time.time()
 
+            self._failsafeTempIsHighStartTs = (self._failsafeTempIsHighStartTs or time.time()) if tempIsHigh else None
+
+            # Trip fail-safe
             if (self._failsafeOn and 
                 self._modeSwitch.getChecked() != ThermalMode.G_Mode.value and
-                tempIsHigh
+                tempIsHigh and
+                time.time() - self._failsafeTempIsHighStartTs > self.FAILSAFE_TRIGGER_DELAY_SEC
             ):
                 self._failsafeTrippedPrevModeStr = self._modeSwitch.getChecked()
                 self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
@@ -302,8 +311,8 @@ class TCC_GUI(QtWidgets.QWidget):
             trayIcon.update((gpuTemp, cpuTemp))
             tray.setIcon(trayIcon)
             
-        self._updateGaugesTask = QPeriodic(self, self.TEMP_UPD_PERIOD_MS, updateOutput)
-        updateOutput()
+        self._updateGaugesTask = QPeriodic(self, self.TEMP_UPD_PERIOD_MS, updateAppState)
+        updateAppState()
         self._updateGaugesTask.start()
         
         self._thermalGPU.speedSliderChanged(updateFanSpeed)
