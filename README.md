@@ -14,13 +14,17 @@ Open-source alternative to AWCC*
 
 OS: Windows 10/11.
 
-Supported Dell G15 models: 5511, 5515, 5520, 5525, 5530.
+Supported models
+- Dell G15: 5511, 5515, 5520, 5525, 5530.
+- Dell Alienware m16 R1
 
-May also work on other Dell G15 notebooks.
+May also work on other Dell G15 / Alienware laptops.
 
 Please report if it worked / didn't work for you. Your feedback is highly appreciated.
 
 _Big thanks to @T7imal, @cemkaya-mpi, @THSLP13 for testing and debugging._
+
+_Thanks to @Dtwpurple, @WinterholdPrime for the compatibility reports._
 
 ## What it can do
 

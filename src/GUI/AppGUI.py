@@ -81,6 +81,7 @@ class SettingsKey(Enum):
     CPUThresholdTemp = "app/fan/cpu/threshold_temp"
     GPUFanSpeed = "app/fan/gpu/speed"
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
+    FailSafeIsOnFlag = "app/failsafe_is_on_flag"
     MinimizeOnCloseFlag = "app/minimize_on_close_flag"
 
 def errorExit(message: str, message2: Optional[str] = None) -> None:
@@ -96,7 +97,7 @@ class TCC_GUI(QtWidgets.QWidget):
     FAILSAFE_TRIGGER_DELAY_SEC = 8
     FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC = 60
     APP_NAME = "Thermal Control Center for Dell G15"
-    APP_VERSION = "1.5.3"
+    APP_VERSION = "1.5.4"
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
     APP_URL = "github.com/AlexIII/tcc-g15"
 
@@ -109,6 +110,7 @@ class TCC_GUI(QtWidgets.QWidget):
     _failsafeTempIsHighStartTs: Optional[int] = None    # Time when the temp first registered to be high (without going lower than the threshold)
     _failsafeTrippedPrevModeStr: Optional[str] = None   # Mode (Custom, Balanced) before fail-safe tripped, as a string
     _failsafeOn = True
+    _prevSavedSettingsValues: list = []
 
     def __init__(self, awcc: AWCCThermal):
         super().__init__()
@@ -211,18 +213,19 @@ class TCC_GUI(QtWidgets.QWidget):
 
 
         # Fail-safe checkbox
-        _failsafeCB = QtWidgets.QCheckBox("Fail-safe")
-        _failsafeCB.setToolTip(f"Switch to G-mode (fans on max) when GPU temp reaches {self.FAILSAFE_GPU_TEMP}°C or CPU reaches {self.FAILSAFE_CPU_TEMP}°C")
+        self._failsafeCB = QtWidgets.QCheckBox("Fail-safe")
+        self._failsafeCB.setToolTip(f"Switch to G-mode (fans on max) when GPU temp reaches {self.FAILSAFE_GPU_TEMP}°C or CPU reaches {self.FAILSAFE_CPU_TEMP}°C")
         def onFailsafeCB():
-            self._failsafeOn = _failsafeCB.isChecked()
+            self._failsafeOn = self._failsafeCB.isChecked()
             self._failsafeTempIsHighTs = 0
             self._failsafeTrippedPrevModeStr = None
+            self._failsafeTempIsHighStartTs = None
             updFailsafeIndicator()
-        _failsafeCB.toggled.connect(onFailsafeCB)
-        _failsafeCB.setChecked(True)
+        self._failsafeCB.toggled.connect(onFailsafeCB)
+        self._failsafeCB.setChecked(self._failsafeOn)
 
         failsafeBox = QtWidgets.QHBoxLayout()
-        failsafeBox.addWidget(_failsafeCB)
+        failsafeBox.addWidget(self._failsafeCB)
         failsafeBox.addWidget(self._limitTempGPU)
         failsafeBox.addWidget(self._limitTempCPU)
         failsafeBox.addWidget(failsafeIndicator)
@@ -248,6 +251,8 @@ class TCC_GUI(QtWidgets.QWidget):
                 return
             setFanSpeed('GPU', self._thermalGPU.getSpeedSlider())
             setFanSpeed('CPU', self._thermalCPU.getSpeedSlider())
+        self._thermalGPU.speedSliderChanged(updateFanSpeed)
+        self._thermalCPU.speedSliderChanged(updateFanSpeed)
 
         def onModeChange(val: str):
             self._thermalGPU.setSpeedDisabled(val != ThermalMode.Custom.value)
@@ -311,14 +316,14 @@ class TCC_GUI(QtWidgets.QWidget):
             trayIcon.update((gpuTemp, cpuTemp))
             tray.setIcon(trayIcon)
             
+            # Periodically save app settings
+            self._saveAppSettings()
+
+        self._loadAppSettings()
+
         self._updateGaugesTask = QPeriodic(self, self.TEMP_UPD_PERIOD_MS, updateAppState)
         updateAppState()
         self._updateGaugesTask.start()
-        
-        self._thermalGPU.speedSliderChanged(updateFanSpeed)
-        self._thermalCPU.speedSliderChanged(updateFanSpeed)
-
-        self._loadAppSettings()
 
     def closeEvent(self, event):
         minimizeOnClose = self.settings.value(SettingsKey.MinimizeOnCloseFlag.value)
@@ -339,7 +344,6 @@ class TCC_GUI(QtWidgets.QWidget):
     # onExit() connected to systray_Exit
     def onExit(self):
         print("exit")
-        self._saveAppSettings()
         # Set mode to Balanced before exit
         self._updateGaugesTask.stop()
         prevMode = self._modeSwitch.getChecked()
@@ -349,11 +353,24 @@ class TCC_GUI(QtWidgets.QWidget):
         sys.exit(1)
 
     def _saveAppSettings(self):
+        curValues = [
+            self._modeSwitch.getChecked(),
+            self._thermalCPU.getSpeedSlider(),
+            self._thermalGPU.getSpeedSlider(),
+            self.FAILSAFE_CPU_TEMP,
+            self.FAILSAFE_GPU_TEMP,
+            self._failsafeOn
+        ]
+        if curValues == self._prevSavedSettingsValues:
+            return
+        self._prevSavedSettingsValues = curValues
+
         self.settings.setValue(SettingsKey.Mode.value, self._modeSwitch.getChecked())
         self.settings.setValue(SettingsKey.CPUFanSpeed.value, self._thermalCPU.getSpeedSlider())
         self.settings.setValue(SettingsKey.GPUFanSpeed.value, self._thermalGPU.getSpeedSlider())
         self.settings.setValue(SettingsKey.CPUThresholdTemp.value, self.FAILSAFE_CPU_TEMP)
         self.settings.setValue(SettingsKey.GPUThresholdTemp.value, self.FAILSAFE_GPU_TEMP)
+        self.settings.setValue(SettingsKey.FailSafeIsOnFlag.value, self._failsafeOn)
 
     def _loadAppSettings(self):
         savedMode = self.settings.value(SettingsKey.Mode.value)
@@ -366,6 +383,8 @@ class TCC_GUI(QtWidgets.QWidget):
         if savedTemp is not None: self._limitTempCPU.setCurrentText(str(savedTemp))
         savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value)
         if savedTemp is not None: self._limitTempGPU.setCurrentText(str(savedTemp))
+        savedFailsafe = self.settings.value(SettingsKey.FailSafeIsOnFlag.value)
+        if savedFailsafe is not None: self._failsafeCB.setChecked(not (savedFailsafe == 'False'))
 
     def clearAppSettings(self):
         (isYes, _) = confirm("Reset to Default", "Do you want to reset all settings to default?", ("Reset", "Cancel"))
