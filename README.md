@@ -39,6 +39,7 @@ _Thanks to @Dtwpurple, @WinterholdPrime for the compatibility reports._
 - Manual fan contoll is not *really* manual. If you set fan speed too low the BIOS will takeover and raise the fan speed automatically when the GPU/CPU temperature reaches certain point to prevent overheating.
 - **"Autorun on startup" feature may not work for you.** The autorun adds a task to the Windows Task Scheduler that should start the app on first sign-in after a reboot, but it may fail to run the app due to the system's security policy. You can try other approaches to make the app to autostart on your system. [Checkout this issue.](https://github.com/AlexIII/tcc-g15/issues/7)
 - On rare occasions, the driver may report bogus GPU temperature. [See this issue.](https://github.com/AlexIII/tcc-g15/issues/9)
+- Switching the thermal mode to "G-mode" and back **may result in second-long system-wide freeze** (in the exact moment when the switch is happening). This is a known issue with the Dell's thermal control interface. Cannot be fixed. Make sure to disable fail-safe feature if you don't want the app to switch the thermal mode automatically.
 
 ## Why AWCC is BAD
 
