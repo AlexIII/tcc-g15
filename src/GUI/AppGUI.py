@@ -7,6 +7,9 @@ from GUI.QRadioButtonSet import QRadioButtonSet
 from GUI.AppColors import Colors
 from GUI.ThermalUnitWidget import ThermalUnitWidget
 from GUI.QGaugeTrayIcon import QGaugeTrayIcon
+from PySide6.QtCore import Qt, Signal
+from windows_toasts import WindowsToaster, Toast, ToastDuration, ToastDisplayImage, ToastImage, ToastImagePosition
+from src.GUI import Hotkey
 
 GUI_ICON = 'icons/gaugeIcon.png'
 
@@ -109,6 +112,8 @@ class TCC_GUI(QtWidgets.QWidget):
     _failsafeTempIsHighStartTs: Optional[int] = None    # Time when the temp first registered to be high (without going lower than the threshold)
     _failsafeTrippedPrevModeStr: Optional[str] = None   # Mode (Custom, Balanced) before fail-safe tripped, as a string
     _failsafeOn = True
+
+    Change_Mode = Signal(int)
 
     def __init__(self, awcc: AWCCThermal):
         super().__init__()
@@ -372,6 +377,19 @@ class TCC_GUI(QtWidgets.QWidget):
         if isYes:
             self.settings.clear()
 
+    def G_Mode_key_Pressed(self):
+        toaster = WindowsToaster('TCC-G15')
+        newToast = Toast(duration=ToastDuration.Short)
+        newToast.AddImage(ToastDisplayImage(ToastImage(resourcePath(GUI_ICON))))
+        if(self._modeSwitch.getChecked() == ThermalMode.G_Mode.value):
+            self._modeSwitch.setChecked(ThermalMode.Balanced.value)
+            newToast.text_fields = {'Thermal mode has been set to Balanced'}
+            toaster.show_toast(newToast)
+        else:
+            self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
+            newToast.text_fields = {'Thermal mode has been set to G_Mode'}
+            toaster.show_toast(newToast)
+
 
 def runApp(startMinimized = False) -> int:
     app = QtWidgets.QApplication([])
@@ -413,6 +431,10 @@ def runApp(startMinimized = False) -> int:
             color: {Colors.GREY.value};
         }}
     """)
+
+    Gmode_key = Hotkey.HotKey()
+    Gmode_key.Change_Mode.connect(mainWindow.G_Mode_key_Pressed)
+    Gmode_key.start()
 
     if startMinimized:
         mainWindow.showMinimized()
