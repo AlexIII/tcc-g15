@@ -9,7 +9,7 @@ from GUI.ThermalUnitWidget import ThermalUnitWidget
 from GUI.QGaugeTrayIcon import QGaugeTrayIcon
 from PySide6.QtCore import Qt, Signal
 from windows_toasts import WindowsToaster, Toast, ToastDuration, ToastDisplayImage, ToastImage, ToastImagePosition
-from src.GUI import Hotkey
+from GUI import Hotkey
 
 GUI_ICON = 'icons/gaugeIcon.png'
 
