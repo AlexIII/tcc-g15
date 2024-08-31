@@ -86,7 +86,10 @@ class SettingsKey(Enum):
     CPUThresholdTemp = "app/fan/cpu/threshold_temp"
     GPUFanSpeed = "app/fan/gpu/speed"
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
+    FailSafeIsOnFlag = "app/failsafe_is_on_flag"
     MinimizeOnCloseFlag = "app/minimize_on_close_flag"
+    Plot_Tem_Speed_data = "app/plot_data"
+
 
 def errorExit(message: str, message2: Optional[str] = None) -> None:
     if not QtWidgets.QApplication.instance():
@@ -403,6 +406,9 @@ class TCC_GUI(QtWidgets.QWidget):
         self._limitTempGPU.setCurrentText(str(savedTemp))
         savedFailsafe = self.settings.value(SettingsKey.FailSafeIsOnFlag.value) or 'True'
         self._failsafeCB.setChecked(not (savedFailsafe == 'False'))
+        savedPlot_Tem_Speed_data = self.settings.value(SettingsKey.Plot_Tem_Speed_data.value)
+        self.Plot_Tem_Speed.set_plot_data(savedPlot_Tem_Speed_data)
+
 
     def clearAppSettings(self):
         (isYes, _) = confirm("Reset to Default", "Do you want to reset all settings to default?", ("Reset", "Cancel"))
