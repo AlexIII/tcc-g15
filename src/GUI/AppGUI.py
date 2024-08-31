@@ -207,10 +207,10 @@ class TCC_GUI(QtWidgets.QWidget):
 
         # Fail-safe temp limits
         self._limitTempGPU = QtWidgets.QComboBox()
-        self._limitTempGPU.addItems(list(map(lambda v: str(v), range(50, 91))))
+        self._limitTempGPU.addItems(list(map(lambda v: str(v), range(30, 91))))
         self._limitTempGPU.setToolTip("Threshold GPU temp")
         self._limitTempCPU = QtWidgets.QComboBox()
-        self._limitTempCPU.addItems(list(map(lambda v: str(v), range(50, 101))))
+        self._limitTempCPU.addItems(list(map(lambda v: str(v), range(30, 101))))
         self._limitTempCPU.setToolTip("Threshold CPU temp")
         def onLimitGPUChange():
             val = self._limitTempGPU.currentText()
@@ -378,16 +378,16 @@ class TCC_GUI(QtWidgets.QWidget):
         self.settings.setValue(SettingsKey.Plot_Tem_Speed_data.value,self.Plot_Tem_Speed.get_plot_data())
 
     def _loadAppSettings(self):
-        savedMode = self.settings.value(SettingsKey.Mode.value) or ThermalMode.Balanced.value
-        self._modeSwitch.setChecked(savedMode)
+        savedMode = self.settings.value(SettingsKey.Mode.value)
+        if savedMode is not None: self._modeSwitch.setChecked(savedMode)
         savedSpeed = self.settings.value(SettingsKey.CPUFanSpeed.value)
         self._thermalCPU.setSpeedSlider(savedSpeed)
         savedSpeed = self.settings.value(SettingsKey.GPUFanSpeed.value)
         self._thermalGPU.setSpeedSlider(savedSpeed)
-        savedTemp = self.settings.value(SettingsKey.CPUThresholdTemp.value) or 95
-        self._limitTempCPU.setCurrentText(str(savedTemp))
-        savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value) or 85
-        self._limitTempGPU.setCurrentText(str(savedTemp))
+        savedTemp = self.settings.value(SettingsKey.CPUThresholdTemp.value)
+        if savedTemp is not None: self._limitTempCPU.setCurrentText(str(savedTemp))
+        savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value)
+        if savedTemp is not None: self._limitTempGPU.setCurrentText(str(savedTemp))
         savedFailsafe = self.settings.value(SettingsKey.FailSafeIsOnFlag.value) or 'True'
         self._failsafeCB.setChecked(not (savedFailsafe == 'False'))
         savedPlot_Tem_Speed_data = self.settings.value(SettingsKey.Plot_Tem_Speed_data.value)
@@ -395,9 +395,8 @@ class TCC_GUI(QtWidgets.QWidget):
 
     def clearAppSettings(self):
         (isYes, _) = confirm("Reset to Default", "Do you want to reset all settings to default?", ("Reset", "Cancel"))
-        if not isYes: return
-        self.settings.clear()
-        self._loadAppSettings()
+        if isYes:
+            self.settings.clear()
 
     def G_Mode_key_Pressed(self):
 
