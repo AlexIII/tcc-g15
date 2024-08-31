@@ -87,7 +87,6 @@ class SettingsKey(Enum):
     GPUFanSpeed = "app/fan/gpu/speed"
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
     MinimizeOnCloseFlag = "app/minimize_on_close_flag"
-    Plot_Tem_Speed_data = "app/plot_tem_speed"
 
 def errorExit(message: str, message2: Optional[str] = None) -> None:
     if not QtWidgets.QApplication.instance():
@@ -102,7 +101,7 @@ class TCC_GUI(QtWidgets.QWidget):
     FAILSAFE_TRIGGER_DELAY_SEC = 8
     FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC = 60
     APP_NAME = "Thermal Control Center for Dell G15"
-    APP_VERSION = "1.5.3"
+    APP_VERSION = "1.5.4"
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
     APP_URL = "github.com/AlexIII/tcc-g15"
 
@@ -115,6 +114,7 @@ class TCC_GUI(QtWidgets.QWidget):
     _failsafeTempIsHighStartTs: Optional[int] = None    # Time when the temp first registered to be high (without going lower than the threshold)
     _failsafeTrippedPrevModeStr: Optional[str] = None   # Mode (Custom, Balanced) before fail-safe tripped, as a string
     _failsafeOn = True
+    _prevSavedSettingsValues: list = []
 
     Change_Mode = Signal(int)
 
@@ -181,7 +181,6 @@ class TCC_GUI(QtWidgets.QWidget):
         lTherm.addWidget(self._thermalGPU)
         lTherm.addWidget(self._thermalCPU)
 
-
         self._modeSwitch = QRadioButtonSet(None, None, [
             ('Balanced', ThermalMode.Balanced.value),
             ('G mode', ThermalMode.G_Mode.value),
@@ -246,9 +245,6 @@ class TCC_GUI(QtWidgets.QWidget):
         modeBox.addWidget(QtWidgets.QWidget(), alignment= QtCore.Qt.AlignRight) # Insert dummy Widget in order to move the following 'failsafeBox' to the right side
         modeBox.addLayout(failsafeBox)
 
-
-
-
         mainLayout = QtWidgets.QVBoxLayout(self)
         mainLayout.addLayout(lTherm)
         mainLayout.addLayout(modeBox)
@@ -266,6 +262,8 @@ class TCC_GUI(QtWidgets.QWidget):
                 return
             setFanSpeed('GPU', self._thermalGPU.getSpeedSlider())
             setFanSpeed('CPU', self._thermalCPU.getSpeedSlider())
+        self._thermalGPU.speedSliderChanged(updateFanSpeed)
+        self._thermalCPU.speedSliderChanged(updateFanSpeed)
 
         def onModeChange(val: str):
             self._thermalGPU.setSpeedDisabled(val != ThermalMode.Custom.value)
@@ -289,7 +287,6 @@ class TCC_GUI(QtWidgets.QWidget):
             gpuRPM = self._awcc.getFanRPM(self._awcc.GPUFanIdx)
             cpuTemp = self._awcc.getFanRelatedTemp(self._awcc.CPUFanIdx)
             cpuRPM = self._awcc.getFanRPM(self._awcc.CPUFanIdx)
-
             # Update UI gauges
             if gpuTemp is not None: self._thermalGPU.setTemp(gpuTemp)
             if gpuRPM is not None: self._thermalGPU.setFanRPM(gpuRPM)
@@ -330,6 +327,11 @@ class TCC_GUI(QtWidgets.QWidget):
             trayIcon.update((gpuTemp, cpuTemp))
             tray.setIcon(trayIcon)
             
+            # Periodically save app settings
+            self._saveAppSettings()
+
+        self._loadAppSettings()
+
         self._updateGaugesTask = QPeriodic(self, self.TEMP_UPD_PERIOD_MS, updateAppState)
         updateAppState()
         self._updateGaugesTask.start()
@@ -368,33 +370,45 @@ class TCC_GUI(QtWidgets.QWidget):
         sys.exit(1)
 
     def _saveAppSettings(self):
-        print("saved")
+        curValues = [
+            self._modeSwitch.getChecked(),
+            self._thermalCPU.getSpeedSlider(),
+            self._thermalGPU.getSpeedSlider(),
+            self.FAILSAFE_CPU_TEMP,
+            self.FAILSAFE_GPU_TEMP,
+            self._failsafeOn
+        ]
+        if curValues == self._prevSavedSettingsValues:
+            return
+        self._prevSavedSettingsValues = curValues
+
         self.settings.setValue(SettingsKey.Mode.value, self._modeSwitch.getChecked())
         self.settings.setValue(SettingsKey.CPUFanSpeed.value, self._thermalCPU.getSpeedSlider())
         self.settings.setValue(SettingsKey.GPUFanSpeed.value, self._thermalGPU.getSpeedSlider())
         self.settings.setValue(SettingsKey.CPUThresholdTemp.value, self.FAILSAFE_CPU_TEMP)
         self.settings.setValue(SettingsKey.GPUThresholdTemp.value, self.FAILSAFE_GPU_TEMP)
+        self.settings.setValue(SettingsKey.FailSafeIsOnFlag.value, self._failsafeOn)
         self.settings.setValue(SettingsKey.Plot_Tem_Speed_data.value,self.Plot_Tem_Speed.get_plot_data())
 
     def _loadAppSettings(self):
-        print("loaded")
-        savedMode = self.settings.value(SettingsKey.Mode.value)
-        if savedMode is not None: self._modeSwitch.setChecked(savedMode)
+        savedMode = self.settings.value(SettingsKey.Mode.value) or ThermalMode.Balanced.value
+        self._modeSwitch.setChecked(savedMode)
         savedSpeed = self.settings.value(SettingsKey.CPUFanSpeed.value)
         self._thermalCPU.setSpeedSlider(savedSpeed)
         savedSpeed = self.settings.value(SettingsKey.GPUFanSpeed.value)
         self._thermalGPU.setSpeedSlider(savedSpeed)
-        savedTemp = self.settings.value(SettingsKey.CPUThresholdTemp.value)
-        if savedTemp is not None: self._limitTempCPU.setCurrentText(str(savedTemp))
-        savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value)
-        if savedTemp is not None: self._limitTempGPU.setCurrentText(str(savedTemp))
-        savedPlot_Tem_Speed_data = self.settings.value(SettingsKey.Plot_Tem_Speed_data.value)
-        if savedPlot_Tem_Speed_data is not None: self.Plot_Tem_Speed.set_plot_data(savedPlot_Tem_Speed_data)
+        savedTemp = self.settings.value(SettingsKey.CPUThresholdTemp.value) or 95
+        self._limitTempCPU.setCurrentText(str(savedTemp))
+        savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value) or 85
+        self._limitTempGPU.setCurrentText(str(savedTemp))
+        savedFailsafe = self.settings.value(SettingsKey.FailSafeIsOnFlag.value) or 'True'
+        self._failsafeCB.setChecked(not (savedFailsafe == 'False'))
 
     def clearAppSettings(self):
         (isYes, _) = confirm("Reset to Default", "Do you want to reset all settings to default?", ("Reset", "Cancel"))
-        if isYes:
-            self.settings.clear()
+        if not isYes: return
+        self.settings.clear()
+        self._loadAppSettings()
 
     def G_Mode_key_Pressed(self):
 
