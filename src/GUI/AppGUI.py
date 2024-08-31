@@ -85,6 +85,7 @@ class SettingsKey(Enum):
     CPUFanSpeed = "app/fan/cpu/speed"
     CPUThresholdTemp = "app/fan/cpu/threshold_temp"
     GPUFanSpeed = "app/fan/gpu/speed"
+    FailSafeIsOnFlag = "app/failsafe_is_on_flag"
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
     MinimizeOnCloseFlag = "app/minimize_on_close_flag"
     Plot_Tem_Speed_data = "app/plot_tem_speed"
@@ -373,6 +374,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self.settings.setValue(SettingsKey.GPUFanSpeed.value, self._thermalGPU.getSpeedSlider())
         self.settings.setValue(SettingsKey.CPUThresholdTemp.value, self.FAILSAFE_CPU_TEMP)
         self.settings.setValue(SettingsKey.GPUThresholdTemp.value, self.FAILSAFE_GPU_TEMP)
+        self.settings.setValue(SettingsKey.FailSafeIsOnFlag.value, self._failsafeOn)
         self.settings.setValue(SettingsKey.Plot_Tem_Speed_data.value,self.Plot_Tem_Speed.get_plot_data())
 
     def _loadAppSettings(self):
@@ -386,6 +388,8 @@ class TCC_GUI(QtWidgets.QWidget):
         if savedTemp is not None: self._limitTempCPU.setCurrentText(str(savedTemp))
         savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value)
         if savedTemp is not None: self._limitTempGPU.setCurrentText(str(savedTemp))
+        savedFailsafe = self.settings.value(SettingsKey.FailSafeIsOnFlag.value) or 'True'
+        self._failsafeCB.setChecked(not (savedFailsafe == 'False'))
         savedPlot_Tem_Speed_data = self.settings.value(SettingsKey.Plot_Tem_Speed_data.value)
         if savedPlot_Tem_Speed_data is not None: self.Plot_Tem_Speed.set_plot_data(savedPlot_Tem_Speed_data)
 
