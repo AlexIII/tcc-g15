@@ -7,6 +7,11 @@ from GUI.QRadioButtonSet import QRadioButtonSet
 from GUI.AppColors import Colors
 from GUI.ThermalUnitWidget import ThermalUnitWidget
 from GUI.QGaugeTrayIcon import QGaugeTrayIcon
+from PySide6.QtCore import Qt, Signal
+from windows_toasts import WindowsToaster, Toast, ToastDuration, ToastDisplayImage, ToastImage, ToastImagePosition, \
+    InteractableWindowsToaster
+from GUI import Hotkey
+from GUI.plot import Plot_Tem_Speed,InteractiveTemperatureFanCurve
 
 GUI_ICON = 'icons/gaugeIcon.png'
 
@@ -83,6 +88,8 @@ class SettingsKey(Enum):
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
     FailSafeIsOnFlag = "app/failsafe_is_on_flag"
     MinimizeOnCloseFlag = "app/minimize_on_close_flag"
+    Plot_Tem_Speed_data = "app/plot_data"
+
 
 def errorExit(message: str, message2: Optional[str] = None) -> None:
     if not QtWidgets.QApplication.instance():
@@ -111,6 +118,8 @@ class TCC_GUI(QtWidgets.QWidget):
     _failsafeTrippedPrevModeStr: Optional[str] = None   # Mode (Custom, Balanced) before fail-safe tripped, as a string
     _failsafeOn = True
     _prevSavedSettingsValues: list = []
+
+    Change_Mode = Signal(int)
 
     def __init__(self, awcc: AWCCThermal):
         super().__init__()
@@ -169,6 +178,8 @@ class TCC_GUI(QtWidgets.QWidget):
         self._thermalGPU = ThermalUnitWidget(self, 'GPU', tempMinMax= (0, 95), tempColorLimits= self.GPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
         self._thermalCPU = ThermalUnitWidget(self, 'CPU', tempMinMax= (0, 110), tempColorLimits= self.CPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
 
+        self.Plot_Tem_Speed =InteractiveTemperatureFanCurve()
+
         lTherm = QtWidgets.QHBoxLayout()
         lTherm.addWidget(self._thermalGPU)
         lTherm.addWidget(self._thermalCPU)
@@ -197,10 +208,10 @@ class TCC_GUI(QtWidgets.QWidget):
 
         # Fail-safe temp limits
         self._limitTempGPU = QtWidgets.QComboBox()
-        self._limitTempGPU.addItems(list(map(lambda v: str(v), range(50, 91))))
+        self._limitTempGPU.addItems(list(map(lambda v: str(v), range(30, 91))))
         self._limitTempGPU.setToolTip("Threshold GPU temp")
         self._limitTempCPU = QtWidgets.QComboBox()
-        self._limitTempCPU.addItems(list(map(lambda v: str(v), range(50, 101))))
+        self._limitTempCPU.addItems(list(map(lambda v: str(v), range(30, 101))))
         self._limitTempCPU.setToolTip("Threshold CPU temp")
         def onLimitGPUChange():
             val = self._limitTempGPU.currentText()
@@ -213,22 +224,24 @@ class TCC_GUI(QtWidgets.QWidget):
 
 
         # Fail-safe checkbox
-        self._failsafeCB = QtWidgets.QCheckBox("Fail-safe")
-        self._failsafeCB.setToolTip(f"Switch to G-mode (fans on max) when GPU temp reaches {self.FAILSAFE_GPU_TEMP}°C or CPU reaches {self.FAILSAFE_CPU_TEMP}°C")
+        _failsafeCB = QtWidgets.QCheckBox("Fail-safe")
+        _failsafeCB.setToolTip(f"Switch to G-mode (fans on max) when GPU temp reaches {self.FAILSAFE_GPU_TEMP}°C or CPU reaches {self.FAILSAFE_CPU_TEMP}°C")
         def onFailsafeCB():
-            self._failsafeOn = self._failsafeCB.isChecked()
+            self._failsafeOn = _failsafeCB.isChecked()
             self._failsafeTempIsHighTs = 0
             self._failsafeTrippedPrevModeStr = None
-            self._failsafeTempIsHighStartTs = None
             updFailsafeIndicator()
-        self._failsafeCB.toggled.connect(onFailsafeCB)
-        self._failsafeCB.setChecked(self._failsafeOn)
+        _failsafeCB.toggled.connect(onFailsafeCB)
+        _failsafeCB.setChecked(True)
 
         failsafeBox = QtWidgets.QHBoxLayout()
-        failsafeBox.addWidget(self._failsafeCB)
+        failsafeBox.addWidget(_failsafeCB)
         failsafeBox.addWidget(self._limitTempGPU)
         failsafeBox.addWidget(self._limitTempCPU)
         failsafeBox.addWidget(failsafeIndicator)
+
+        plotBox = QtWidgets.QHBoxLayout()
+        plotBox.addWidget(self.Plot_Tem_Speed,alignment=QtCore.Qt.AlignCenter)
 
         modeBox = QtWidgets.QHBoxLayout()
         modeBox.addWidget(self._modeSwitch, alignment= QtCore.Qt.AlignLeft)
@@ -238,6 +251,7 @@ class TCC_GUI(QtWidgets.QWidget):
         mainLayout = QtWidgets.QVBoxLayout(self)
         mainLayout.addLayout(lTherm)
         mainLayout.addLayout(modeBox)
+        mainLayout.addLayout(plotBox)
         mainLayout.setAlignment(QtCore.Qt.AlignTop)
         mainLayout.setContentsMargins(10, 0, 10, 0)
 
@@ -324,6 +338,11 @@ class TCC_GUI(QtWidgets.QWidget):
         self._updateGaugesTask = QPeriodic(self, self.TEMP_UPD_PERIOD_MS, updateAppState)
         updateAppState()
         self._updateGaugesTask.start()
+        
+        self._thermalGPU.speedSliderChanged(updateFanSpeed)
+        self._thermalCPU.speedSliderChanged(updateFanSpeed)
+
+        self._loadAppSettings()
 
     def closeEvent(self, event):
         minimizeOnClose = self.settings.value(SettingsKey.MinimizeOnCloseFlag.value)
@@ -344,6 +363,7 @@ class TCC_GUI(QtWidgets.QWidget):
     # onExit() connected to systray_Exit
     def onExit(self):
         print("exit")
+        self._saveAppSettings()
         # Set mode to Balanced before exit
         self._updateGaugesTask.stop()
         prevMode = self._modeSwitch.getChecked()
@@ -371,6 +391,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self.settings.setValue(SettingsKey.CPUThresholdTemp.value, self.FAILSAFE_CPU_TEMP)
         self.settings.setValue(SettingsKey.GPUThresholdTemp.value, self.FAILSAFE_GPU_TEMP)
         self.settings.setValue(SettingsKey.FailSafeIsOnFlag.value, self._failsafeOn)
+        self.settings.setValue(SettingsKey.Plot_Tem_Speed_data.value,self.Plot_Tem_Speed.get_plot_data())
 
     def _loadAppSettings(self):
         savedMode = self.settings.value(SettingsKey.Mode.value) or ThermalMode.Balanced.value
@@ -385,12 +406,31 @@ class TCC_GUI(QtWidgets.QWidget):
         self._limitTempGPU.setCurrentText(str(savedTemp))
         savedFailsafe = self.settings.value(SettingsKey.FailSafeIsOnFlag.value) or 'True'
         self._failsafeCB.setChecked(not (savedFailsafe == 'False'))
+        savedPlot_Tem_Speed_data = self.settings.value(SettingsKey.Plot_Tem_Speed_data.value)
+        self.Plot_Tem_Speed.set_plot_data(savedPlot_Tem_Speed_data)
+
 
     def clearAppSettings(self):
         (isYes, _) = confirm("Reset to Default", "Do you want to reset all settings to default?", ("Reset", "Cancel"))
         if not isYes: return
         self.settings.clear()
         self._loadAppSettings()
+
+    def G_Mode_key_Pressed(self):
+
+        interacttaoster = InteractableWindowsToaster('Questionnaire','432890')
+        toaster = WindowsToaster('TCC-G15')
+        newToast = Toast(duration=ToastDuration.Short)
+        #newToast = Toast(['How are you?'])
+        # newToast.AddImage(ToastDisplayImage(ToastImage(resourcePath(GUI_ICON))))
+        if(self._modeSwitch.getChecked() == ThermalMode.G_Mode.value):
+            self._modeSwitch.setChecked(ThermalMode.Balanced.value)
+            newToast.text_fields = {'ModeChanged','Thermal mode has been set to Balanced'}
+            interacttaoster.show_toast(newToast)
+        else:
+            self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
+            newToast.text_fields = {'ModeChanged','Thermal mode has been set to G_Mode'}
+            interacttaoster.show_toast(newToast)
 
 
 def runApp(startMinimized = False) -> int:
@@ -433,6 +473,10 @@ def runApp(startMinimized = False) -> int:
             color: {Colors.GREY.value};
         }}
     """)
+
+    Gmode_key = Hotkey.HotKey()
+    Gmode_key.Change_Mode.connect(mainWindow.G_Mode_key_Pressed)
+    Gmode_key.start()
 
     if startMinimized:
         mainWindow.showMinimized()
