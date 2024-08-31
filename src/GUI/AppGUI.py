@@ -79,7 +79,7 @@ class ThermalMode(Enum):
     Custom = 'Custom'
     Balanced = 'Balanced'
     G_Mode = 'G_Mode'
-
+    
 class SettingsKey(Enum):
     Mode = "app/mode"
     CPUFanSpeed = "app/fan/cpu/speed"
@@ -368,6 +368,7 @@ class TCC_GUI(QtWidgets.QWidget):
         sys.exit(1)
 
     def _saveAppSettings(self):
+        print("saved")
         self.settings.setValue(SettingsKey.Mode.value, self._modeSwitch.getChecked())
         self.settings.setValue(SettingsKey.CPUFanSpeed.value, self._thermalCPU.getSpeedSlider())
         self.settings.setValue(SettingsKey.GPUFanSpeed.value, self._thermalGPU.getSpeedSlider())
@@ -376,6 +377,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self.settings.setValue(SettingsKey.Plot_Tem_Speed_data.value,self.Plot_Tem_Speed.get_plot_data())
 
     def _loadAppSettings(self):
+        print("loaded")
         savedMode = self.settings.value(SettingsKey.Mode.value)
         if savedMode is not None: self._modeSwitch.setChecked(savedMode)
         savedSpeed = self.settings.value(SettingsKey.CPUFanSpeed.value)
