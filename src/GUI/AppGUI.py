@@ -1,7 +1,8 @@
 import sys, os, time
 from enum import Enum
-from typing import Callable, Literal, Optional, Tuple
+from typing import Callable, Literal, Optional, Tuple, List
 from PySide6 import QtCore, QtGui, QtWidgets
+from windows_toasts import WindowsToaster, Toast, ToastDuration, ToastDisplayImage
 from Backend.AWCCThermal import AWCCThermal, NoAWCCWMIClass, CannotInstAWCCWMI
 from GUI.QRadioButtonSet import QRadioButtonSet
 from GUI.AppColors import Colors
@@ -36,6 +37,13 @@ def autorunTask(action: Literal['add', 'remove']) -> int:
         return os.system(addCmd)
     else:
         return os.system(removeCmd)
+
+def toasterMessage(title: str, message: List[str | None]) -> None:
+    toaster = WindowsToaster(title)
+    toast = Toast(duration=ToastDuration.Short)
+    toast.text_fields = message
+    toast.AddImage(ToastDisplayImage.fromPath(resourcePath(GUI_ICON)))
+    toaster.show_toast(toast)
 
 def alert(title: str, message: str, type: QtWidgets.QMessageBox.Icon = QtWidgets.QMessageBox.Icon.Information, *, message2: Optional[str] = None) -> None:
         msg = QtWidgets.QMessageBox(type, title, message)
@@ -377,6 +385,7 @@ class TCC_GUI(QtWidgets.QWidget):
         else:
             self._gModeKeyPrevModeStr = current
             self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
+        toasterMessage("Thermal mode changed", [self._modeSwitch.getChecked().replace('_', '-')])
 
     def _saveAppSettings(self):
         curValues = [
