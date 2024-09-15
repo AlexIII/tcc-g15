@@ -7,6 +7,7 @@ from GUI.QRadioButtonSet import QRadioButtonSet
 from GUI.AppColors import Colors
 from GUI.ThermalUnitWidget import ThermalUnitWidget
 from GUI.QGaugeTrayIcon import QGaugeTrayIcon
+from GUI import HotKey
 
 GUI_ICON = 'icons/gaugeIcon.png'
 
@@ -111,6 +112,9 @@ class TCC_GUI(QtWidgets.QWidget):
     _failsafeTrippedPrevModeStr: Optional[str] = None   # Mode (Custom, Balanced) before fail-safe tripped, as a string
     _failsafeOn = True
     _prevSavedSettingsValues: list = []
+
+    _gModeKeySignal = QtCore.Signal()
+    _gModeKeyPrevModeStr: Optional[str] = None
 
     def __init__(self, awcc: AWCCThermal):
         super().__init__()
@@ -260,7 +264,7 @@ class TCC_GUI(QtWidgets.QWidget):
             res = self._awcc.setMode(self._awcc.Mode[val])
             print(f'Set mode {val}: ' + ('ok' if res else 'fail'))
             if not res:
-                errorExit(f"Failed to set mode {val}", "Program is terminated")
+                self._errorExit(f"Failed to set mode {val}", "Program is terminated")
             updateFanSpeed()
             if val != ThermalMode.G_Mode.value:
                 self._failsafeTrippedPrevModeStr = None # In case the mode was switched manually
@@ -325,6 +329,10 @@ class TCC_GUI(QtWidgets.QWidget):
         updateAppState()
         self._updateGaugesTask.start()
 
+        self.gModeHotKey = HotKey.HotKey(HotKey.G_MODE_KEY, self._gModeKeySignal)
+        self._gModeKeySignal.connect(self._onGModeHotKeyPressed)
+        self.gModeHotKey.start()
+
     def closeEvent(self, event):
         minimizeOnClose = self.settings.value(SettingsKey.MinimizeOnCloseFlag.value)
         if minimizeOnClose is None:
@@ -345,12 +353,30 @@ class TCC_GUI(QtWidgets.QWidget):
     def onExit(self):
         print("exit")
         # Set mode to Balanced before exit
-        self._updateGaugesTask.stop()
         prevMode = self._modeSwitch.getChecked()
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
         if prevMode != ThermalMode.Balanced.value:
             alert("Mode changed", "Thermal mode has been reset to Balanced")
-        sys.exit(1)
+        self._destroy()
+        sys.exit(0)
+
+    def _errorExit(self, message: str, message2: Optional[str] = None) -> None:
+        self._destroy()
+        errorExit(message, message2)
+
+    def _destroy(self):
+        self.gModeHotKey.stop()
+        self.gModeHotKey.wait()
+        self._updateGaugesTask.stop()
+        print('Cleanup: done')
+
+    def _onGModeHotKeyPressed(self):
+        current = self._modeSwitch.getChecked()
+        if current == ThermalMode.G_Mode.value:
+            self._modeSwitch.setChecked(self._gModeKeyPrevModeStr or ThermalMode.Balanced.value)
+        else:
+            self._gModeKeyPrevModeStr = current
+            self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
 
     def _saveAppSettings(self):
         curValues = [
@@ -392,6 +418,8 @@ class TCC_GUI(QtWidgets.QWidget):
         self.settings.clear()
         self._loadAppSettings()
 
+    def G_Mode_key_Pressed(self, val):
+        print("G_Mode_key " + str(val))
 
 def runApp(startMinimized = False) -> int:
     app = QtWidgets.QApplication([])
