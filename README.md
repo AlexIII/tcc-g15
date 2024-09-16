@@ -10,7 +10,9 @@ Open-source alternative to AWCC*
 
 <br/>
 
-> Liked the app? Glad you did! 😸 Spread the word! 🚀 Leave a star! ⭐
+> Liked the app? Glad you did! 😸 Help by spreading the word 🚀 and leaving the project a star ⭐
+
+> Didn't work out for you? Please report the problem by creating an [issue](https://github.com/AlexIII/tcc-g15/issues). Feedback is always welcome!
 
 **AWCC - "Alienware Control Center" is an app for thermal control that Dell ships with their G-series notebooks.*
 
@@ -25,11 +27,6 @@ Supported models
 May also work on other Dell G15 / Alienware laptops.
 
 Please report if it worked / didn't work for you. Your feedback is highly appreciated.
-
-_Big thanks to the amazing people who contributed to the project_
-- _@AprDeci for code / new features contribution_
-- _@T7imal, @cemkaya-mpi, @THSLP13 for testing and debugging_
-- _@Dtwpurple, @WinterholdPrime, @Dhia-zorai for compatibility reports._
 
 ## What it can do
 
@@ -85,6 +82,13 @@ The telemetry is being sent to these URLs:
 https://tm-sdk.platinumai.net
 https://qa-external-tm.plawebsvc01.net
 ```
+
+## Credits
+
+Big thanks to the amazing people who has contributed to the project
+- @AprDeci for code / new features
+- @T7imal, @cemkaya-mpi, @THSLP13 for testing and debugging
+- @Dtwpurple, @WinterholdPrime, @Dhia-zorai for compatibility reports
 
 ## License
 
