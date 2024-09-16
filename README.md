@@ -8,6 +8,10 @@ Open-source alternative to AWCC*
 
 <img src="./screen-2.png" />
 
+<br/>
+
+> Liked the app? Glad you did! 😸 Spread the word! 🚀 Leave a star! ⭐
+
 **AWCC - "Alienware Control Center" is an app for thermal control that Dell ships with their G-series notebooks.*
 
 ## Target platform
@@ -56,19 +60,6 @@ If this alternative works out for you, you can safely remove from your PC:
 - Alieanware CC Components
 - Alieanware Command Center Suite
 - Alieanware OC Controls
-
-## TO-DO
-
-I'll implement these things if the project receives sufficient number of stars*
-
-- ✔️ Minimize to tray (10x ⭐)
-- ✔️ Save settings between restarts (20x ⭐)
-- ✔️ Autorun on system startup option (30x ⭐)
-- ✔️ Adjustable fail-safe threshold temperature, drop out of fail-safe mode after the temperature returns to normal (40x ⭐)
-- ✔️ Patch for G15 5511 / 5525
-- ✔️ Proper Windows installer (50x ⭐)
-
-*or maybe I'll do it regardless, who knows.
 
 ## How it works
 
