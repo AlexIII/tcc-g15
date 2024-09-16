@@ -50,6 +50,9 @@ class ThermalUnitWidget(QtWidgets.QWidget):
     def setTemp(self, temp: int) -> None:
         self._tempBar.setValue(temp)
 
+    def getTemp(self) -> int:
+        return self._tempBar.value()
+
     def setFanRPM(self, rpm: int) -> None:
         self._fanBar.setValue(rpm)
 

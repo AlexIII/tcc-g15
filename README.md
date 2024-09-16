@@ -1,4 +1,4 @@
-# Thermal Control Center for Dell G15 5511 / 5515 / 5520 / 5525 / 5530
+# Thermal Control Center for Dell G15 (and some others)
 
 Open-source alternative to AWCC*
 
@@ -8,6 +8,12 @@ Open-source alternative to AWCC*
 
 <img src="./screen-2.png" />
 
+<br/>
+
+> Liked the app? Glad you did! 😸 Help by spreading the word 🚀 and leaving the project a star ⭐
+
+> Didn't work out for you? Please report the problem by creating an [issue](https://github.com/AlexIII/tcc-g15/issues). Feedback is always welcome!
+
 **AWCC - "Alienware Control Center" is an app for thermal control that Dell ships with their G-series notebooks.*
 
 ## Target platform
@@ -15,16 +21,12 @@ Open-source alternative to AWCC*
 OS: Windows 10/11.
 
 Supported models
-- Dell G15: 5511, 5515, 5520, 5525, 5530.
+- Dell G15: 5511, 5515, 5520, 5525, 5530, 5535.
 - Dell Alienware m16 R1
 
 May also work on other Dell G15 / Alienware laptops.
 
 Please report if it worked / didn't work for you. Your feedback is highly appreciated.
-
-_Big thanks to @T7imal, @cemkaya-mpi, @THSLP13 for testing and debugging._
-
-_Thanks to @Dtwpurple, @WinterholdPrime for the compatibility reports._
 
 ## What it can do
 
@@ -32,6 +34,7 @@ _Thanks to @Dtwpurple, @WinterholdPrime for the compatibility reports._
 - ✔️ Shows GPU/CPU temperature and fan speed
 - ✔️ Semi-manual fan speed control
 - ✔️ An option to automatically enable G-mode when GPU/CPU temperature reaches critical
+- ✔️ Support for keyboard G-mode hotkey
 
 ## Limitations
 
@@ -54,19 +57,6 @@ If this alternative works out for you, you can safely remove from your PC:
 - Alieanware CC Components
 - Alieanware Command Center Suite
 - Alieanware OC Controls
-
-## TO-DO
-
-I'll implement these things if the project receives sufficient number of stars*
-
-- ✔️ Minimize to tray (10x ⭐)
-- ✔️ Save settings between restarts (20x ⭐)
-- ✔️ Autorun on system startup option (30x ⭐)
-- ✔️ Adjustable fail-safe threshold temperature, drop out of fail-safe mode after the temperature returns to normal (40x ⭐)
-- ✔️ Patch for G15 5511 / 5525
-- ✔️ Proper Windows installer (50x ⭐)
-
-*or maybe I'll do it regardless, who knows.
 
 ## How it works
 
@@ -92,6 +82,13 @@ The telemetry is being sent to these URLs:
 https://tm-sdk.platinumai.net
 https://qa-external-tm.plawebsvc01.net
 ```
+
+## Credits
+
+Big thanks to the amazing people who has contributed to the project
+- @AprDeci for code / new features
+- @T7imal, @cemkaya-mpi, @THSLP13 for testing and debugging
+- @Dtwpurple, @WinterholdPrime, @Dhia-zorai for compatibility reports
 
 ## License
 
