@@ -1,4 +1,4 @@
-# Thermal Control Center for Dell G15 5511 / 5515 / 5520 / 5525 / 5530
+# Thermal Control Center for Dell G15 (and some others)
 
 Open-source alternative to AWCC*
 
@@ -15,16 +15,17 @@ Open-source alternative to AWCC*
 OS: Windows 10/11.
 
 Supported models
-- Dell G15: 5511, 5515, 5520, 5525, 5530.
+- Dell G15: 5511, 5515, 5520, 5525, 5530, 5535.
 - Dell Alienware m16 R1
 
 May also work on other Dell G15 / Alienware laptops.
 
 Please report if it worked / didn't work for you. Your feedback is highly appreciated.
 
-_Big thanks to @T7imal, @cemkaya-mpi, @THSLP13 for testing and debugging._
-
-_Thanks to @Dtwpurple, @WinterholdPrime for the compatibility reports._
+_Big thanks to the amazing people who contributed to the project_
+- _@AprDeci for code / new features contribution_
+- _@T7imal, @cemkaya-mpi, @THSLP13 for testing and debugging_
+- _@Dtwpurple, @WinterholdPrime, @Dhia-zorai for compatibility reports._
 
 ## What it can do
 
@@ -32,6 +33,7 @@ _Thanks to @Dtwpurple, @WinterholdPrime for the compatibility reports._
 - ✔️ Shows GPU/CPU temperature and fan speed
 - ✔️ Semi-manual fan speed control
 - ✔️ An option to automatically enable G-mode when GPU/CPU temperature reaches critical
+- ✔️ Support for keyboard G-mode hotkey
 
 ## Limitations
 

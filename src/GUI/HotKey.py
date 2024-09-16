@@ -6,7 +6,7 @@ from PySide6.QtCore import *
 
 G_MODE_KEY = 0x80
 
-_STOP_SIGNAL_CODE = 0x9AB10000
+_STOP_SIGNAL_CODE = 0x9AB10000 # This number was picked randomly
 
 class HotKey(QThread):
     def __init__(self, key: int, keyPressedSignal: Signal):
