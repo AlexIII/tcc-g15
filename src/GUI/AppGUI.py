@@ -1,4 +1,4 @@
-import sys, os, time
+import sys, os, time, datetime
 from enum import Enum
 from typing import Callable, Literal, Optional, Tuple, List
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -38,19 +38,12 @@ def autorunTask(action: Literal['add', 'remove']) -> int:
     else:
         return os.system(removeCmd)
 
-def toasterMessage(title: str, message: List[str | None]) -> None:
-    toaster = WindowsToaster(title)
-    toast = Toast(duration=ToastDuration.Short)
-    toast.text_fields = message
-    toast.AddImage(ToastDisplayImage.fromPath(resourcePath(GUI_ICON)))
-    toaster.show_toast(toast)
-
 def alert(title: str, message: str, type: QtWidgets.QMessageBox.Icon = QtWidgets.QMessageBox.Icon.Information, *, message2: Optional[str] = None) -> None:
-        msg = QtWidgets.QMessageBox(type, title, message)
-        msg.setWindowIcon(QtGui.QIcon(resourcePath(GUI_ICON)))
-        if message2: msg.setInformativeText(message2)
-        msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
-        msg.exec()
+    msg = QtWidgets.QMessageBox(type, title, message)
+    msg.setWindowIcon(QtGui.QIcon(resourcePath(GUI_ICON)))
+    if message2: msg.setInformativeText(message2)
+    msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
+    msg.exec()
 
 def confirm(title: str, message: str, options: Optional[Tuple[str, str]] = None, dontAskAgain: bool = False) -> Tuple[bool, Optional[bool]]:
     msg = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Question, title, message, QtWidgets.QMessageBox.Yes |  QtWidgets.QMessageBox.No)
@@ -123,6 +116,8 @@ class TCC_GUI(QtWidgets.QWidget):
 
     _gModeKeySignal = QtCore.Signal()
     _gModeKeyPrevModeStr: Optional[str] = None
+
+    _toaster = WindowsToaster(APP_NAME)
 
     def __init__(self, awcc: AWCCThermal):
         super().__init__()
@@ -314,6 +309,7 @@ class TCC_GUI(QtWidgets.QWidget):
             ):
                 self._failsafeTrippedPrevModeStr = self._modeSwitch.getChecked()
                 self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
+                self._toasterMessageCurrentMode(source='failsafe')
                 print(f'Fail-safe tripped at GPU={gpuTemp} CPU={cpuTemp}')
 
             # Auto-reset failsafe
@@ -321,6 +317,7 @@ class TCC_GUI(QtWidgets.QWidget):
                 time.time() - self._failsafeTempIsHighTs > self.FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC
             ):
                 self._modeSwitch.setChecked(self._failsafeTrippedPrevModeStr)
+                self._toasterMessageCurrentMode(source='failsafe')
                 self._failsafeTrippedPrevModeStr = None
                 print('Fail-safe reset')
 
@@ -364,7 +361,7 @@ class TCC_GUI(QtWidgets.QWidget):
         prevMode = self._modeSwitch.getChecked()
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
         if prevMode != ThermalMode.Balanced.value:
-            alert("Mode changed", "Thermal mode has been reset to Balanced")
+            self._toasterMessageCurrentMode()
         self._destroy()
         sys.exit(0)
 
@@ -385,7 +382,24 @@ class TCC_GUI(QtWidgets.QWidget):
         else:
             self._gModeKeyPrevModeStr = current
             self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
-        toasterMessage("Thermal mode changed", [self._modeSwitch.getChecked().replace('_', '-')])
+        self._toasterMessageCurrentMode()
+
+    def _toasterMessageCurrentMode(self, source: Optional[Literal['failsafe']] = None) -> None:
+        sourceStr = f" [Fail-safe]" if source == 'failsafe' else ""
+        self.toasterMessage(
+            [
+                self._modeSwitch.getChecked().replace('_', '-'),
+                f"GPU: {self._thermalGPU.getTemp()}°C, CPU: {self._thermalCPU.getTemp()}°C",
+                "Thermal mode changed" + sourceStr
+            ],
+            source != 'failsafe'
+        )
+
+    def toasterMessage(self, message: List[str | None], expire = True) -> None:
+        toast = Toast(duration=ToastDuration.Short, expiration_time= (datetime.datetime.now() + datetime.timedelta(seconds=5)) if expire else None)
+        toast.text_fields = message
+        toast.AddImage(ToastDisplayImage.fromPath(resourcePath(GUI_ICON)))
+        self._toaster.show_toast(toast)
 
     def _saveAppSettings(self):
         curValues = [
