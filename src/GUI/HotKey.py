@@ -13,6 +13,7 @@ class HotKey(QThread):
         super(HotKey, self).__init__()
         self.keyPressedSignal = keyPressedSignal
         self.key = key
+        self.nativeThreadId = None
 
     def run(self):
         self.nativeThreadId = threading.get_native_id()
@@ -31,4 +32,6 @@ class HotKey(QThread):
         user32.UnregisterHotKey(None, 1)
 
     def stop(self):
+        if self.nativeThreadId is None:
+            return
         windll.user32.PostThreadMessageW(self.nativeThreadId, win32con.WM_USER, _STOP_SIGNAL_CODE, 0)

@@ -124,7 +124,7 @@ class TCC_GUI(QtWidgets.QWidget):
         self._awcc = awcc
 
         self.settings = QtCore.QSettings(self.APP_URL, "AWCC")
-        print(self.settings.fileName())
+        print(f'Settings location: {self.settings.fileName()}')
 
         # Set main window props
         self.setFixedSize(600, 0)
@@ -173,8 +173,8 @@ class TCC_GUI(QtWidgets.QWidget):
         self.setObjectName('QMainWindow')
         self.setWindowTitle(self.APP_NAME)
 
-        self._thermalGPU = ThermalUnitWidget(self, 'GPU', tempMinMax= (0, 95), tempColorLimits= self.GPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
-        self._thermalCPU = ThermalUnitWidget(self, 'CPU', tempMinMax= (0, 110), tempColorLimits= self.CPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
+        self._thermalGPU = ThermalUnitWidget(self, self._awcc.getHardwareName(self._awcc.GPUFanIdx) or 'GPU', tempMinMax= (0, 95), tempColorLimits= self.GPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
+        self._thermalCPU = ThermalUnitWidget(self, self._awcc.getHardwareName(self._awcc.CPUFanIdx) or 'CPU', tempMinMax= (0, 110), tempColorLimits= self.CPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
 
         lTherm = QtWidgets.QHBoxLayout()
         lTherm.addWidget(self._thermalGPU)
@@ -249,6 +249,9 @@ class TCC_GUI(QtWidgets.QWidget):
         mainLayout.setContentsMargins(10, 0, 10, 0)
 
         # Glue GUI to backend
+        self.gModeHotKey = None
+        self._updateGaugesTask = None
+
         def setFanSpeed(fan: Literal['GPU', 'CPU'], speed: int) -> None:
             res = self._awcc.setFanSpeed(self._awcc.GPUFanIdx if fan == 'GPU' else self._awcc.CPUFanIdx, speed)
             print(f'Set {fan} fan speed to {speed}: ' + ('ok' if res else 'fail'))
@@ -340,6 +343,9 @@ class TCC_GUI(QtWidgets.QWidget):
 
     def closeEvent(self, event):
         minimizeOnClose = self.settings.value(SettingsKey.MinimizeOnCloseFlag.value)
+        if minimizeOnClose is not None:
+            minimizeOnClose = str(minimizeOnClose).lower() == 'true'
+        
         if minimizeOnClose is None:
             # minimizeOnClose is not set, prompt user
             (toExit, dontAskAgain) = confirm("Exit", "Do you want to exit or minimize to tray?", ("Exit", "Minimize"), True)
@@ -370,9 +376,11 @@ class TCC_GUI(QtWidgets.QWidget):
         errorExit(message, message2)
 
     def _destroy(self):
-        self.gModeHotKey.stop()
-        self.gModeHotKey.wait()
-        self._updateGaugesTask.stop()
+        if self.gModeHotKey is not None:
+            self.gModeHotKey.stop()
+            self.gModeHotKey.wait()
+        if self.gModeHotKey is not None:
+            self._updateGaugesTask.stop()
         print('Cleanup: done')
 
     def _onGModeHotKeyPressed(self):
@@ -432,8 +440,8 @@ class TCC_GUI(QtWidgets.QWidget):
         self._limitTempCPU.setCurrentText(str(savedTemp))
         savedTemp = self.settings.value(SettingsKey.GPUThresholdTemp.value) or 85
         self._limitTempGPU.setCurrentText(str(savedTemp))
-        savedFailsafe = self.settings.value(SettingsKey.FailSafeIsOnFlag.value) or 'True'
-        self._failsafeCB.setChecked(not (savedFailsafe == 'False'))
+        savedFailsafe = self.settings.value(SettingsKey.FailSafeIsOnFlag.value) or 'true'
+        self._failsafeCB.setChecked(str(savedFailsafe).lower() == 'true')
 
     def clearAppSettings(self):
         (isYes, _) = confirm("Reset to Default", "Do you want to reset all settings to default?", ("Reset", "Cancel"))

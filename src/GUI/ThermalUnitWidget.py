@@ -2,12 +2,15 @@ from typing import Callable, Optional, Tuple
 from PySide6 import QtCore, QtWidgets
 from GUI.QGauge import QGauge
 from GUI.AppColors import Colors
+import inspect
 
 class ThermalUnitWidget(QtWidgets.QWidget):
     def __init__(self, parent: Optional[QtWidgets.QWidget], title: str, tempMinMax: Tuple[int,int], tempColorLimits: Optional[Tuple[int,int]], fanMinMax: Tuple[int,int], sliderMaxAndTick: Tuple[int,int]):
         super().__init__(parent)
 
-        self._title = QtWidgets.QLabel(title)
+        self._title = QtWidgets.QLabel(title, )
+        self._title.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+        self._title.setToolTip("Triple left-click and Crtl+C to copy")
 
         self._tempBar, _tempBarLabel = self._makeGaugeWithLabel(tempMinMax, ' °C', tempColorLimits)
 
@@ -26,13 +29,13 @@ class ThermalUnitWidget(QtWidgets.QWidget):
         self._speedSlider.valueChanged.connect(lambda: self._speedSliderDebounce.start())
         
         grid = QtWidgets.QGridLayout() # type: QtWidgets.QWidget
-        grid.addWidget(self._title,             0, 0, QtCore.Qt.AlignCenter)
-        grid.addWidget(self._tempBar,           1, 0, QtCore.Qt.AlignTop)
-        grid.addWidget(_tempBarLabel,           1, 1, QtCore.Qt.AlignLeft)
-        grid.addWidget(self._fanBar,            2, 0, QtCore.Qt.AlignTop)
-        grid.addWidget(_fanBarLabel,            2, 1, QtCore.Qt.AlignLeft)
-        grid.addWidget(self._speedSlider,       3, 0, QtCore.Qt.AlignTop)
-        grid.addWidget(_speedSliderLabel,       3, 1, QtCore.Qt.AlignLeft)
+        grid.addWidget(self._title,         0, 0, 1, 2, QtCore.Qt.AlignCenter if len(title) < 10 else QtCore.Qt.AlignLeft)
+        grid.addWidget(self._tempBar,       1, 0, QtCore.Qt.AlignTop)
+        grid.addWidget(_tempBarLabel,       1, 1, QtCore.Qt.AlignLeft)
+        grid.addWidget(self._fanBar,        2, 0, QtCore.Qt.AlignTop)
+        grid.addWidget(_fanBarLabel,        2, 1, QtCore.Qt.AlignLeft)
+        grid.addWidget(self._speedSlider,   3, 0, QtCore.Qt.AlignTop)
+        grid.addWidget(_speedSliderLabel,   3, 1, QtCore.Qt.AlignLeft)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 0)
         self.setLayout(grid)

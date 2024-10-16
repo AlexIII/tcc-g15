@@ -32,6 +32,7 @@ class AWCCThermal:
         self._fanIdsAndRelatedSensorsIds = self._awcc.GetFanIdsAndRelatedSensorsIds()
         self._fanIds = [ id for id, _ in self._fanIdsAndRelatedSensorsIds ]
         self._sensorIds = [ id for _, ids in self._fanIdsAndRelatedSensorsIds for id in ids ]
+        self._wmi = wmi.WMI()
 
     def getAllTemp(self) -> list[Optional[int]]:
         return [ self._awcc.GetSensorTemperature(sensorId) for sensorId in self._sensorIds ]
@@ -64,3 +65,16 @@ class AWCCThermal:
 
     def setMode(self, mode: ModeType) -> bool:
         return self._awcc.ApplyThermalMode(mode)
+
+
+    def getHardwareName(self, fanIdx: int) -> Optional[str]:
+        if fanIdx == 0:
+            wmiClass = self._wmi.Win32_Processor
+            wmiInst = wmiClass()[0]
+            return wmiInst.Name if hasattr(wmiInst, 'Name') else None
+        elif fanIdx == 1:
+            wmiClass = self._wmi.Win32_VideoController
+            wmiInst = wmiClass()[0]
+            return wmiInst.Name if hasattr(wmiInst, 'Name') else None
+        else:
+            return None
