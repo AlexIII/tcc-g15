@@ -4,7 +4,7 @@ Open-source alternative to AWCC*
 
 [Download link](https://github.com/AlexIII/tcc-g15/releases) *(Note: the app requires administrator privileges)*
 
-<img src="./screen-1.png" alt="Screenshot 1" />
+<img src="./screen-1.png" alt="Screenshot 1" width="600" />
 
 <img src="./screen-2.png" alt="Screenshot 2" />
 
