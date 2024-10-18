@@ -88,7 +88,7 @@ https://qa-external-tm.plawebsvc01.net
 
 Big thanks to the amazing people who have contributed to the project:
 - @AprDeci for code / new features
-- @T7imal, @cemkaya-mpi, @THSLP13 for testing and debugging
+- @T7imal, @cemkaya-mpi, @THSLP13, @Terryxtl for testing and debugging
 - @Dtwpurple, @WinterholdPrime, @Dhia-zorai for compatibility reports
 
 ## License
