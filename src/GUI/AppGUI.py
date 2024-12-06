@@ -327,6 +327,7 @@ class TCC_GUI(QtWidgets.QWidget):
             # Update tray icon
             trayIcon.update((gpuTemp, cpuTemp))
             tray.setIcon(trayIcon)
+            tray.setToolTip(f"GPU:    {gpuTemp} °C    {gpuRPM} RPM\nCPU:    {cpuTemp} °C    {cpuRPM} RPM\nMode:    {self._modeSwitch.getChecked()}")
             
             # Periodically save app settings
             self._saveAppSettings()
