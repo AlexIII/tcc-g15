@@ -325,7 +325,7 @@ class TCC_GUI(QtWidgets.QWidget):
                 print('Fail-safe reset')
 
             # Update tray icon
-            trayIcon.update((gpuTemp, cpuTemp))
+            trayIcon.update((gpuTemp, cpuTemp), self._modeSwitch.getChecked() == ThermalMode.G_Mode.value)
             tray.setIcon(trayIcon)
             tray.setToolTip(f"GPU:    {gpuTemp} °C    {gpuRPM} RPM\nCPU:    {cpuTemp} °C    {cpuRPM} RPM\nMode:    {self._modeSwitch.getChecked()}")
             
