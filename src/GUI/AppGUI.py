@@ -136,7 +136,7 @@ class TCC_GUI(QtWidgets.QWidget):
         )
 
         # Set up tray icon
-        trayIcon = QGaugeTrayIcon((self.GPU_COLOR_LIMITS, self.CPU_COLOR_LIMITS))
+        self.trayIcon = QGaugeTrayIcon((self.GPU_COLOR_LIMITS, self.CPU_COLOR_LIMITS))
         menu = QtWidgets.QMenu()
         showAction = menu.addAction("Show")
         showAction.triggered.connect(self.showNormal)
@@ -159,7 +159,7 @@ class TCC_GUI(QtWidgets.QWidget):
         exitAction = menu.addAction("Exit")
         exitAction.triggered.connect(self.onExit)
         tray = QtWidgets.QSystemTrayIcon(self)
-        tray.setIcon(trayIcon)
+        tray.setIcon(self.trayIcon)
         tray.setContextMenu(menu)
         tray.show()
 
@@ -172,9 +172,33 @@ class TCC_GUI(QtWidgets.QWidget):
         # Set up GUI
         self.setObjectName('QMainWindow')
         self.setWindowTitle(self.APP_NAME)
+        print(time.time(), 'init 1')
 
-        self._thermalGPU = ThermalUnitWidget(self, self._awcc.getHardwareName(self._awcc.GPUFanIdx) or 'GPU', tempMinMax= (0, 95), tempColorLimits= self.GPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
-        self._thermalCPU = ThermalUnitWidget(self, self._awcc.getHardwareName(self._awcc.CPUFanIdx) or 'CPU', tempMinMax= (0, 110), tempColorLimits= self.CPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
+        self._thermalGPU = ThermalUnitWidget(self, tempMinMax= (0, 95), tempColorLimits= self.GPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
+        self._thermalGPU.setTitle('GPU')
+        self._thermalCPU = ThermalUnitWidget(self, tempMinMax= (0, 110), tempColorLimits= self.CPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
+        self._thermalCPU.setTitle('CPU')
+
+        # Detecting GPU/CPU model is a slow operation, run asynchronously
+        class DetectCpuGpuModelsWorker(QtCore.QObject):
+            finished = QtCore.Signal(str, str)
+            def __init__(self, parent: QtCore.QObject, awcc: AWCCThermal, on_result: Callable[[Optional[str], Optional[str]], None]) -> None:
+                super().__init__()
+                self._awcc = awcc
+                self._t = QtCore.QThread(parent)
+                self.moveToThread(self._t)
+                self.finished.connect(self._t.quit)
+                self.finished.connect(on_result)
+                self._t.started.connect(self._task)
+                self._t.start()
+            def _task(self):
+                gpuModel = self._awcc.getHardwareName(self._awcc.GPUFanIdx)
+                cpuModel = self._awcc.getHardwareName(self._awcc.CPUFanIdx)
+                self.finished.emit(gpuModel, cpuModel)
+            def start(self):
+                self._t.start()
+        detect = DetectCpuGpuModelsWorker(self, awcc, self.updateGaugeTitles)
+        detect.start()
 
         lTherm = QtWidgets.QHBoxLayout()
         lTherm.addWidget(self._thermalGPU)
@@ -217,7 +241,6 @@ class TCC_GUI(QtWidgets.QWidget):
             val = self._limitTempCPU.currentText()
             if val.isdigit(): self.FAILSAFE_CPU_TEMP = int(val)
         self._limitTempCPU.currentIndexChanged.connect(onLimitCPUChange)
-
 
         # Fail-safe checkbox
         self._failsafeCB = QtWidgets.QCheckBox("Fail-safe")
@@ -325,8 +348,9 @@ class TCC_GUI(QtWidgets.QWidget):
                 print('Fail-safe reset')
 
             # Update tray icon
-            trayIcon.update((gpuTemp, cpuTemp), self._modeSwitch.getChecked() == ThermalMode.G_Mode.value)
-            tray.setIcon(trayIcon)
+            self.trayIcon = self.trayIcon.resizeForScreen() or self.trayIcon
+            self.trayIcon.update((gpuTemp, cpuTemp), self._modeSwitch.getChecked() == ThermalMode.G_Mode.value)
+            tray.setIcon(self.trayIcon)
             tray.setToolTip(f"GPU:    {gpuTemp} °C    {gpuRPM} RPM\nCPU:    {cpuTemp} °C    {cpuRPM} RPM\nMode:    {self._modeSwitch.getChecked().replace('_', '-')}")
             
             # Periodically save app settings
@@ -341,6 +365,10 @@ class TCC_GUI(QtWidgets.QWidget):
         self.gModeHotKey = HotKey.HotKey(HotKey.G_MODE_KEY, self._gModeKeySignal)
         self._gModeKeySignal.connect(self._onGModeHotKeyPressed)
         self.gModeHotKey.start()
+
+    def updateGaugeTitles(self, gpuModel, cpuModel):
+        if gpuModel: self._thermalGPU.setTitle(gpuModel)
+        if cpuModel: self._thermalCPU.setTitle(cpuModel)
 
     def closeEvent(self, event):
         minimizeOnClose = self.settings.value(SettingsKey.MinimizeOnCloseFlag.value)

@@ -71,10 +71,10 @@ class AWCCThermal:
         if fanIdx == 0:
             wmiClass = self._wmi.Win32_Processor
             wmiInst = wmiClass()[0]
-            return wmiInst.Name if hasattr(wmiInst, 'Name') else None
+            return wmiInst.Name.strip() if hasattr(wmiInst, 'Name') else None
         elif fanIdx == 1:
             wmiClass = self._wmi.Win32_VideoController
             wmiInst = max(wmiClass(), key=lambda inst: inst.AdapterRAM & 0xFFFFFFFF if hasattr(inst, 'AdapterRAM') and isinstance(inst.AdapterRAM, int) else 0) # Assume the one with the largest memory is the main GPU
-            return wmiInst.Name if hasattr(wmiInst, 'Name') else None
+            return wmiInst.Name.strip() if hasattr(wmiInst, 'Name') else None
         else:
             return None

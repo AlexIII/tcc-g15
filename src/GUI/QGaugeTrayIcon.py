@@ -9,6 +9,11 @@ class QGaugeTrayIcon(QtGui.QPixmap):
         self.fill(QtCore.Qt.transparent)
         self._tempColorLimits = tempColorLimits
 
+    def resizeForScreen(self) -> Optional["QGaugeTrayIcon"]:
+        if self._SIZE == QGaugeTrayIcon._bestTrayIconSize():
+            return None
+        return QGaugeTrayIcon(self._tempColorLimits)
+
     def update(self, temps: Tuple[int, int], stars: bool = False) -> None:
         self.fill(QtCore.Qt.transparent)
         painter = QtGui.QPainter(self)
