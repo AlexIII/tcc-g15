@@ -37,6 +37,18 @@ Please report if it worked / didn't work for you. Your feedback is highly apprec
 - ✔️ Option to automatically enable G-mode when GPU/CPU temperature reaches critical
 - ✔️ Support for keyboard G-mode hotkey
 
+## UI hints
+
+- The white dots ("stars") in the corners of the tray icon indicate current G mode state.
+
+    <img src="./g_off.png" alt="g_off" width="40" align="center" />
+    G mode is Off
+    <br>
+    <img src="./g_on.png" alt="g_on" width="40" align="center" />
+    G mode is On
+
+- Hover mouse pointer over a UI element to see its description
+
 ## Limitations
 
 - Requires admin system privileges (to access WMI interface)
@@ -90,6 +102,27 @@ Big thanks to the amazing people who have contributed to the project:
 - @AprDeci for code / new features
 - @T7imal, @cemkaya-mpi, @THSLP13, @Terryxtl for testing and debugging
 - @Dtwpurple, @WinterholdPrime, @Dhia-zorai for compatibility reports
+
+## Changelog
+
+- 1.6.3
+  - Add tray icon tooltip (show current temperatures, fan speeds, thermal mode)
+  - Fix: adaptive tray icon size (fixes blurry tray icon on high resolution screens)
+  - Fix: faster app startup
+
+- 1.6.2
+    - Show GPU/CPU model in the app (fixed from 1.6.1)
+    - Small bug fixes
+
+- 1.6.0
+  - Add support for keyboard G-mode hotkey
+
+- 1.5.4
+  - Fix saving settings on app abnormal exit (system shutdown, etc)
+  - Fix reset to default settings
+
+- 1.5.3
+  - Add trigger delay for fail-safe to smooth-out temp spikes
 
 ## License
 
