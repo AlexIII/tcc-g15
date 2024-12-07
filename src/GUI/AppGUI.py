@@ -9,6 +9,7 @@ from GUI.AppColors import Colors
 from GUI.ThermalUnitWidget import ThermalUnitWidget
 from GUI.QGaugeTrayIcon import QGaugeTrayIcon
 from GUI import HotKey
+from Backend.DetectHardware import DetectHardware
 
 GUI_ICON = 'icons/gaugeIcon.png'
 
@@ -172,7 +173,6 @@ class TCC_GUI(QtWidgets.QWidget):
         # Set up GUI
         self.setObjectName('QMainWindow')
         self.setWindowTitle(self.APP_NAME)
-        print(time.time(), 'init 1')
 
         self._thermalGPU = ThermalUnitWidget(self, tempMinMax= (0, 95), tempColorLimits= self.GPU_COLOR_LIMITS, fanMinMax= (0, 5500), sliderMaxAndTick= (120, 20))
         self._thermalGPU.setTitle('GPU')
@@ -182,9 +182,8 @@ class TCC_GUI(QtWidgets.QWidget):
         # Detecting GPU/CPU model is a slow operation, run asynchronously
         class DetectCpuGpuModelsWorker(QtCore.QObject):
             finished = QtCore.Signal(str, str)
-            def __init__(self, parent: QtCore.QObject, awcc: AWCCThermal, on_result: Callable[[Optional[str], Optional[str]], None]) -> None:
+            def __init__(self, parent: QtCore.QObject, on_result: Callable[[Optional[str], Optional[str]], None]) -> None:
                 super().__init__()
-                self._awcc = awcc
                 self._t = QtCore.QThread(parent)
                 self.moveToThread(self._t)
                 self.finished.connect(self._t.quit)
@@ -192,12 +191,15 @@ class TCC_GUI(QtWidgets.QWidget):
                 self._t.started.connect(self._task)
                 self._t.start()
             def _task(self):
-                gpuModel = self._awcc.getHardwareName(self._awcc.GPUFanIdx)
-                cpuModel = self._awcc.getHardwareName(self._awcc.CPUFanIdx)
+                print("DetectCpuGpuModelsWorker: started")
+                d = DetectHardware()
+                gpuModel = d.getHardwareName(d.GPUFanIdx)
+                cpuModel = d.getHardwareName(d.CPUFanIdx)
+                print(f"DetectCpuGpuModelsWorker: finished: {gpuModel}, {cpuModel}")
                 self.finished.emit(gpuModel, cpuModel)
             def start(self):
                 self._t.start()
-        detect = DetectCpuGpuModelsWorker(self, awcc, self.updateGaugeTitles)
+        detect = DetectCpuGpuModelsWorker(self, self.updateGaugeTitles)
         detect.start()
 
         lTherm = QtWidgets.QHBoxLayout()

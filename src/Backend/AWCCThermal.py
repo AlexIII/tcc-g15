@@ -32,7 +32,6 @@ class AWCCThermal:
         self._fanIdsAndRelatedSensorsIds = self._awcc.GetFanIdsAndRelatedSensorsIds()
         self._fanIds = [ id for id, _ in self._fanIdsAndRelatedSensorsIds ]
         self._sensorIds = [ id for _, ids in self._fanIdsAndRelatedSensorsIds for id in ids ]
-        self._wmi = wmi.WMI()
 
     def getAllTemp(self) -> list[Optional[int]]:
         return [ self._awcc.GetSensorTemperature(sensorId) for sensorId in self._sensorIds ]
@@ -65,16 +64,3 @@ class AWCCThermal:
 
     def setMode(self, mode: ModeType) -> bool:
         return self._awcc.ApplyThermalMode(mode)
-
-
-    def getHardwareName(self, fanIdx: int) -> Optional[str]:
-        if fanIdx == 0:
-            wmiClass = self._wmi.Win32_Processor
-            wmiInst = wmiClass()[0]
-            return wmiInst.Name.strip() if hasattr(wmiInst, 'Name') else None
-        elif fanIdx == 1:
-            wmiClass = self._wmi.Win32_VideoController
-            wmiInst = max(wmiClass(), key=lambda inst: inst.AdapterRAM & 0xFFFFFFFF if hasattr(inst, 'AdapterRAM') and isinstance(inst.AdapterRAM, int) else 0) # Assume the one with the largest memory is the main GPU
-            return wmiInst.Name.strip() if hasattr(wmiInst, 'Name') else None
-        else:
-            return None
