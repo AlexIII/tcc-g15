@@ -6,7 +6,7 @@ Open-source alternative to AWCC*
 
 <img src="./screen-1.png" alt="Screenshot 1" width="600" />
 
-<img src="./screen-2.png" alt="Screenshot 2" />
+<img src="./screen-2.png" alt="Screenshot 2" width="170" />
 
 <br/>
 
@@ -107,6 +107,8 @@ Big thanks to the amazing people who have contributed to the project:
 
 - 1.6.3
   - Add tray icon tooltip (show current temperatures, fan speeds, thermal mode)
+  - Add tray icon G mode indication
+  - Add switching thermal mode from tray context menu
   - Fix: adaptive tray icon size (fixes blurry tray icon on high resolution screens)
   - Fix: faster app startup
 
