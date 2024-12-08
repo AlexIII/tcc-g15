@@ -74,9 +74,9 @@ class QPeriodic:
         self._tmr.stop()
 
 class ThermalMode(Enum):
-    Custom = 'Custom'
     Balanced = 'Balanced'
     G_Mode = 'G_Mode'
+    Custom = 'Custom'
     
 class SettingsKey(Enum):
     Mode = "app/mode"
@@ -120,6 +120,8 @@ class TCC_GUI(QtWidgets.QWidget):
 
     _toaster = WindowsToaster(APP_NAME)
 
+    _modeSwitch: QRadioButtonSet
+
     def __init__(self, awcc: AWCCThermal):
         super().__init__()
         self._awcc = awcc
@@ -139,6 +141,15 @@ class TCC_GUI(QtWidgets.QWidget):
         # Set up tray icon
         self.trayIcon = QGaugeTrayIcon((self.GPU_COLOR_LIMITS, self.CPU_COLOR_LIMITS))
         menu = QtWidgets.QMenu()
+        # Mode switch
+        menu.addSection("Mode")
+        self._trayMenuModeSwitch = {} # Dict[ThermalMode, QtWidgets.QAction]
+        for m in ThermalMode:
+            modeAction = menu.addAction("-")
+            modeAction.triggered.connect(lambda _, m_value=m.value: self._modeSwitch.setChecked(m_value))
+            self._trayMenuModeSwitch[m.value] = modeAction
+        # Settings
+        menu.addSection("Settings")
         showAction = menu.addAction("Show")
         showAction.triggered.connect(self.showNormal)
         addToAutorunAction = menu.addAction("Enable autorun")
@@ -159,6 +170,7 @@ class TCC_GUI(QtWidgets.QWidget):
         restoreAction.triggered.connect(self.clearAppSettings)
         exitAction = menu.addAction("Exit")
         exitAction.triggered.connect(self.onExit)
+        # Setup tray widget
         tray = QtWidgets.QSystemTrayIcon(self)
         tray.setIcon(self.trayIcon)
         tray.setContextMenu(menu)
@@ -206,11 +218,7 @@ class TCC_GUI(QtWidgets.QWidget):
         lTherm.addWidget(self._thermalGPU)
         lTherm.addWidget(self._thermalCPU)
 
-        self._modeSwitch = QRadioButtonSet(None, None, [
-            ('Balanced', ThermalMode.Balanced.value),
-            ('G mode', ThermalMode.G_Mode.value),
-            ('Custom', ThermalMode.Custom.value)
-        ])
+        self._modeSwitch = QRadioButtonSet(None, None, list(map(lambda m: (m.name.replace('_', ' '), m.value), ThermalMode)))
 
         # Fail-safe indicator
         failsafeIndicator = QtWidgets.QLabel()
@@ -300,6 +308,8 @@ class TCC_GUI(QtWidgets.QWidget):
             if val != ThermalMode.G_Mode.value:
                 self._failsafeTrippedPrevModeStr = None # In case the mode was switched manually
             updFailsafeIndicator()
+            for m in ThermalMode:
+                self._trayMenuModeSwitch[m.value].setText(f"{'•' if m.value == val else ' '} {m.name.replace('_', ' ')}")
 
         self._modeSwitch.setChecked(ThermalMode.Balanced.value)
         onModeChange(ThermalMode.Balanced.value)
@@ -353,7 +363,7 @@ class TCC_GUI(QtWidgets.QWidget):
             self.trayIcon = self.trayIcon.resizeForScreen() or self.trayIcon
             self.trayIcon.update((gpuTemp, cpuTemp), self._modeSwitch.getChecked() == ThermalMode.G_Mode.value)
             tray.setIcon(self.trayIcon)
-            tray.setToolTip(f"GPU:    {gpuTemp} °C    {gpuRPM} RPM\nCPU:    {cpuTemp} °C    {cpuRPM} RPM\nMode:    {self._modeSwitch.getChecked().replace('_', '-')}")
+            tray.setToolTip(f"GPU:    {gpuTemp} °C    {gpuRPM} RPM\nCPU:    {cpuTemp} °C    {cpuRPM} RPM\nMode:    {self._modeSwitch.getChecked().replace('_', ' ')}")
             
             # Periodically save app settings
             self._saveAppSettings()
@@ -427,7 +437,7 @@ class TCC_GUI(QtWidgets.QWidget):
         sourceStr = f" [Fail-safe]" if source == 'failsafe' else ""
         self.toasterMessage(
             [
-                self._modeSwitch.getChecked().replace('_', '-'),
+                self._modeSwitch.getChecked().replace('_', ' '),
                 f"GPU: {self._thermalGPU.getTemp()}°C, CPU: {self._thermalCPU.getTemp()}°C",
                 "Thermal mode changed" + sourceStr
             ],
