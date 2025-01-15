@@ -14,33 +14,23 @@ class QGauge(QtWidgets.QProgressBar):
 
     def setColorScheme(self, colorScheme: dict[int, str]) -> None:
         self._colorScheme = colorScheme
-        self._onValUpd()
-        self._connectValUp()
+        self._updateColor()
 
     def createLabel(self) -> QtWidgets.QLabel:
         if not self._extLabel:
             self._extLabel = QtWidgets.QLabel()
-            self._connectValUp()
-            self._onValUpd()
         return self._extLabel
 
-    def _connectValUp(self):
-        if not self._updColor_connected:
-            self.valueChanged.connect(self._onValUpd)
-            self._updColor_connected = True
-
     def setValue(self, value: int):
+        # Update label
+        if self._extLabel:
+            self._extLabel.setText(self.format().replace('%v', str(value)))
         if value < self.minimum(): value = self.minimum()
         if value > self.maximum(): value = self.maximum()
         super().setValue(value)
+        self._updateColor()
 
-    @QtCore.Slot()
-    def _onValUpd(self):
-        # Update label
-        if self._extLabel:
-            self._extLabel.setText(self.text())
-
-        # Update color
+    def _updateColor(self):
         if self._colorScheme:
             val = self.value()
             color = '#000'
