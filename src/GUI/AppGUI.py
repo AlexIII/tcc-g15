@@ -8,6 +8,7 @@ from GUI.QRadioButtonSet import QRadioButtonSet
 from GUI.AppColors import Colors
 from GUI.ThermalUnitWidget import ThermalUnitWidget
 from GUI.QGaugeTrayIcon import QGaugeTrayIcon
+from GUI.TemperatureCurve import TemperatureCurve
 from GUI import HotKey
 from Backend.DetectHardware import DetectHardware
 
@@ -77,6 +78,7 @@ class ThermalMode(Enum):
     Balanced = 'Balanced'
     G_Mode = 'G_Mode'
     Custom = 'Custom'
+    Curve = 'Curve'
     
 class SettingsKey(Enum):
     Mode = "app/mode"
@@ -86,6 +88,8 @@ class SettingsKey(Enum):
     GPUThresholdTemp = "app/fan/gpu/threshold_temp"
     FailSafeIsOnFlag = "app/failsafe_is_on_flag"
     MinimizeOnCloseFlag = "app/minimize_on_close_flag"
+    GPUCurvePoints = "app/fan/gpu/curve_points"
+    CPUCurvePoints = "app/fan/cpu/curve_points"
 
 def errorExit(message: str, message2: Optional[str] = None) -> None:
     if not QtWidgets.QApplication.instance():
@@ -207,7 +211,7 @@ class TCC_GUI(QtWidgets.QWidget):
                 d = DetectHardware()
                 gpuModel = d.getHardwareName(d.GPUFanIdx)
                 cpuModel = d.getHardwareName(d.CPUFanIdx)
-                print(f"DetectCpuGpuModelsWorker: finished: {gpuModel}, {cpuModel}")
+                print(f"DetectCpuGpuModelsWorker: finished: {gpuModel, cpuModel}")
                 self.finished.emit(gpuModel, cpuModel)
             def start(self):
                 self._t.start()
@@ -275,9 +279,41 @@ class TCC_GUI(QtWidgets.QWidget):
         modeBox.addWidget(QtWidgets.QWidget(), alignment= QtCore.Qt.AlignRight) # Insert dummy Widget in order to move the following 'failsafeBox' to the right side
         modeBox.addLayout(failsafeBox)
 
+        # Create curve editor
+        self._curveContainer = QtWidgets.QWidget(self)
+        self._curveLayout = QtWidgets.QVBoxLayout(self._curveContainer)
+        
+        self._curveSelector = QtWidgets.QComboBox()
+        self._curveSelector.addItems(["GPU Temperature Curve", "CPU Temperature Curve"])
+        self._curveSelector.currentIndexChanged.connect(self._onCurveSelectorChanged)
+        
+        self._gpuCurve = TemperatureCurve(
+            self._curveContainer, 
+            temp_range=(30, 95), 
+            fan_range=(0, 100), 
+            on_curve_changed=lambda points: self._onCurveChanged(points, 0)
+        )
+        
+        self._cpuCurve = TemperatureCurve(
+            self._curveContainer,
+            temp_range=(30, 110),
+            fan_range=(0, 100),
+            on_curve_changed=lambda points: self._onCurveChanged(points, 1)
+        )
+        
+        self._cpuCurve.hide()  # Default to showing GPU curve
+        
+        self._curveLayout.addWidget(self._curveSelector)
+        self._curveLayout.addWidget(self._gpuCurve)
+        self._curveLayout.addWidget(self._cpuCurve)
+        
+        self._curveContainer.hide()  # Hide curve editor initially
+
+        # Modify main layout to include curve editor
         mainLayout = QtWidgets.QVBoxLayout(self)
         mainLayout.addLayout(lTherm)
         mainLayout.addLayout(modeBox)
+        mainLayout.addWidget(self._curveContainer)
         mainLayout.setAlignment(QtCore.Qt.AlignTop)
         mainLayout.setContentsMargins(10, 0, 10, 0)
 
@@ -300,11 +336,21 @@ class TCC_GUI(QtWidgets.QWidget):
         def onModeChange(val: str):
             self._thermalGPU.setSpeedDisabled(val != ThermalMode.Custom.value)
             self._thermalCPU.setSpeedDisabled(val != ThermalMode.Custom.value)
-            res = self._awcc.setMode(self._awcc.Mode[val])
+            
+            # Show or hide the curve editor
+            self._curveContainer.setVisible(val == ThermalMode.Curve.value)
+            
+            res = self._awcc.setMode(self._awcc.Mode[ThermalMode.Custom.value if val == ThermalMode.Curve.value else val])
             print(f'Set mode {val}: ' + ('ok' if res else 'fail'))
             if not res:
                 self._errorExit(f"Failed to set mode {val}", "Program is terminated")
-            updateFanSpeed()
+                
+            # If in curve mode, immediately apply current temperature curve settings
+            if val == ThermalMode.Curve.value:
+                self._applyCurveSettings()
+            elif val == ThermalMode.Custom.value:
+                updateFanSpeed()
+                
             if val != ThermalMode.G_Mode.value:
                 self._failsafeTrippedPrevModeStr = None # In case the mode was switched manually
             updFailsafeIndicator()
@@ -367,6 +413,10 @@ class TCC_GUI(QtWidgets.QWidget):
             
             # Periodically save app settings
             self._saveAppSettings()
+
+            # In curve mode, adjust fan speed based on temperature
+            if self._modeSwitch.getChecked() == ThermalMode.Curve.value and gpuTemp is not None and cpuTemp is not None:
+                self._applyCurveSettings()
 
         self._loadAppSettings()
 
@@ -469,9 +519,16 @@ class TCC_GUI(QtWidgets.QWidget):
         self.settings.setValue(SettingsKey.CPUThresholdTemp.value, self.FAILSAFE_CPU_TEMP)
         self.settings.setValue(SettingsKey.GPUThresholdTemp.value, self.FAILSAFE_GPU_TEMP)
         self.settings.setValue(SettingsKey.FailSafeIsOnFlag.value, self._failsafeOn)
+        
+        # Save curve points
+        self.settings.setValue(SettingsKey.GPUCurvePoints.value, self._serialize_points(self._gpuCurve.get_points()))
+        self.settings.setValue(SettingsKey.CPUCurvePoints.value, self._serialize_points(self._cpuCurve.get_points()))
 
     def _loadAppSettings(self):
         savedMode = self.settings.value(SettingsKey.Mode.value) or ThermalMode.Balanced.value
+        # Use default if saved mode not available
+        if savedMode not in self._modeSwitch._buttons:
+            savedMode = ThermalMode.Balanced.value
         self._modeSwitch.setChecked(savedMode)
         savedSpeed = self.settings.value(SettingsKey.CPUFanSpeed.value)
         self._thermalCPU.setSpeedSlider(savedSpeed)
@@ -483,6 +540,31 @@ class TCC_GUI(QtWidgets.QWidget):
         self._limitTempGPU.setCurrentText(str(savedTemp))
         savedFailsafe = self.settings.value(SettingsKey.FailSafeIsOnFlag.value) or 'true'
         self._failsafeCB.setChecked(str(savedFailsafe).lower() == 'true')
+        
+        # Load curve points
+        gpuPoints = self._deserialize_points(self.settings.value(SettingsKey.GPUCurvePoints.value))
+        if gpuPoints and len(gpuPoints) >= 2:
+            self._gpuCurve.set_points(gpuPoints)
+            
+        cpuPoints = self._deserialize_points(self.settings.value(SettingsKey.CPUCurvePoints.value))
+        if cpuPoints and len(cpuPoints) >= 2:
+            self._cpuCurve.set_points(cpuPoints)
+            
+        # Show or hide the curve editor
+        self._curveContainer.setVisible(savedMode == ThermalMode.Curve.value)
+    
+    def _serialize_points(self, points: List[Tuple[int, int]]) -> str:
+        """Serialize the list of points to a string"""
+        return ";".join([f"{t},{f}" for t, f in points])
+    
+    def _deserialize_points(self, points_str: Optional[str]) -> List[Tuple[int, int]]:
+        """Deserialize a string into a list of points"""
+        if not points_str:
+            return []
+        try:
+            return [tuple(map(int, p.split(','))) for p in points_str.split(";")]
+        except:
+            return []
 
     def clearAppSettings(self):
         (isYes, _) = confirm("Reset to Default", "Do you want to reset all settings to default?", ("Reset", "Cancel"))
@@ -492,6 +574,32 @@ class TCC_GUI(QtWidgets.QWidget):
 
     def G_Mode_key_Pressed(self, val):
         print("G_Mode_key " + str(val))
+
+    def _onCurveSelectorChanged(self, index):
+        """Switch the displayed curve editor"""
+        if index == 0:  # GPU curve
+            self._gpuCurve.show()
+            self._cpuCurve.hide()
+        else:  # CPU curve
+            self._gpuCurve.hide()
+            self._cpuCurve.show()
+    
+    def _onCurveChanged(self, points, curve_index):
+        """Update settings when the curve changes"""
+        # If in curve mode and currently active, apply new settings immediately
+        if self._modeSwitch.getChecked() == ThermalMode.Curve.value:
+            self._applyCurveSettings()
+    
+    def _applyCurveSettings(self):
+        if not (hasattr(self, '_gpuCurve') and hasattr(self, '_cpuCurve')):
+            return
+        gpuTemp = self._thermalGPU.getTemp()
+        cpuTemp = self._thermalCPU.getTemp()
+        gpuFanSpeed = self._gpuCurve.get_fan_speed_for_temp(gpuTemp)
+        cpuFanSpeed = self._cpuCurve.get_fan_speed_for_temp(cpuTemp)
+        self._awcc.setFanSpeed(self._awcc.GPUFanIdx, gpuFanSpeed)
+        self._awcc.setFanSpeed(self._awcc.CPUFanIdx, cpuFanSpeed)
+        print(f"Applied curve settings - GPU: {gpuTemp}°C -> {gpuFanSpeed}%, CPU: {cpuTemp}°C -> {cpuFanSpeed}%")
 
 def runApp(startMinimized = False) -> int:
     app = QtWidgets.QApplication([])
