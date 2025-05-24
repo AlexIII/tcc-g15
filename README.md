@@ -106,7 +106,7 @@ Big thanks to the amazing people who have contributed to the project:
 ## Changelog
 
 - 1.6.4
-  - Fix: do not limit displayed RMP value
+  - Fix: do not limit displayed RPM value
 
 - 1.6.3
   - Add tray icon tooltip (show current temperatures, fan speeds, thermal mode)
