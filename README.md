@@ -21,7 +21,7 @@ Open-source alternative to AWCC*
 OS: Windows 10/11.
 
 Supported models:
-- Dell G15: 5511, 5515, 5520, 5525, 5530, 5535
+- Dell G15: 5511, 5515, 5520, 5525, 5530, 5535, 5590
 - Dell Alienware m16 R1
 - Dell G3 3590
 
@@ -101,7 +101,7 @@ https://qa-external-tm.plawebsvc01.net
 Big thanks to the amazing people who have contributed to the project:
 - @AprDeci for code / new features
 - @T7imal, @cemkaya-mpi, @THSLP13, @Terryxtl for testing and debugging
-- @Dtwpurple, @WinterholdPrime, @Dhia-zorai for compatibility reports
+- @Dtwpurple, @WinterholdPrime, @Dhia-zorai, @fraPCI for compatibility reports
 
 ## Changelog
 
