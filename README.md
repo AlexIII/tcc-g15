@@ -36,6 +36,7 @@ Please report if it worked / didn't work for you. Your feedback is highly apprec
 - ✔️ Semi-manual fan speed control
 - ✔️ Option to automatically enable G-mode when GPU/CPU temperature reaches critical
 - ✔️ Support for keyboard G-mode hotkey
+- ✔️ Temperature curve mode for automatic fan speed control
 
 ## UI hints
 
@@ -48,6 +49,11 @@ Please report if it worked / didn't work for you. Your feedback is highly apprec
     G mode is On
 
 - Hover mouse pointer over a UI element to see its description
+- In Curve mode, you can:
+  - Left-click and drag points to adjust the curve
+  - Right-click to add new points
+  - Double-click to delete points
+  - Use the buttons to add, remove, or reset points
 
 ## Limitations
 
@@ -104,6 +110,9 @@ Big thanks to the amazing people who have contributed to the project:
 - @Dtwpurple, @WinterholdPrime, @Dhia-zorai, @fraPCI for compatibility reports
 
 ## Changelog
+
+- 1.7.0
+  - Add temperature curve mode for automatic fan speed control
 
 - 1.6.4
   - Fix: do not limit displayed RPM value
