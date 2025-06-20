@@ -1,4 +1,5 @@
 import sys, os, time, datetime
+import pythoncom
 from enum import Enum
 from typing import Callable, Literal, Optional, Tuple, List
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -91,14 +92,16 @@ class QPeriodic:
 
 class ThermalDataWorker(QtCore.QObject):
     dataReady = QtCore.Signal(dict) # Emitting a dictionary
+    initializationError = QtCore.Signal(str, str)
 
-    def __init__(self, awcc: AWCCThermal, update_period_ms: int, parent: Optional[QtCore.QObject] = None):
+    def __init__(self, update_period_ms: int, parent: Optional[QtCore.QObject] = None):
         super().__init__(parent)
-        self._awcc = awcc
         self._update_period_ms = update_period_ms
+        self._awcc: Optional[AWCCThermal] = None
         self._timer = None
 
     def _fetchThermalData(self):
+        if not self._awcc: return
         gpu_temp, gpu_rpm, cpu_temp, cpu_rpm = None, None, None, None
         try:
             gpu_temp = self._awcc.getFanRelatedTemp(self._awcc.GPUFanIdx)
@@ -129,6 +132,19 @@ class ThermalDataWorker(QtCore.QObject):
         self.dataReady.emit(data)
 
     def run(self):
+        pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
+        try:
+            self._awcc = AWCCThermal() # AWCCThermal is already imported in the file
+        except Exception as e:
+            error_title = "WMI Initialization Error"
+            # It's good to include specific exception types if known, e.g. NoAWCCWMIClass, CannotInstAWCCWMI
+            # but general Exception is okay as a catch-all here.
+            error_message = f"Failed to initialize AWCCThermal in worker: {type(e).__name__}: {e}"
+            print(f"Worker Error: {error_message}") # Keep console log for debugging
+            self.initializationError.emit(error_title, error_message)
+            # Do not call pythoncom.CoUninitialize() here directly, it's connected to thread.finished
+            return # Stop further execution in run() if AWCCThermal fails
+
         self._timer = QtCore.QTimer()
         self._timer.setInterval(self._update_period_ms)
         self._timer.timeout.connect(self._fetchThermalData)
@@ -386,13 +402,15 @@ class TCC_GUI(QtWidgets.QWidget):
             pass
 
         # Initialize ThermalDataWorker
-        self._thermalWorker = ThermalDataWorker(awcc=self._awcc, update_period_ms=self.TEMP_UPD_PERIOD_MS)
+        self._thermalWorker = ThermalDataWorker(update_period_ms=self.TEMP_UPD_PERIOD_MS)
         self._thermalThread = QtCore.QThread(self)
         self._thermalWorker.moveToThread(self._thermalThread)
         self._thermalWorker.dataReady.connect(self._onThermalDataUpdated)
+        self._thermalWorker.initializationError.connect(self._onWorkerInitializationError)
         self._thermalThread.started.connect(self._thermalWorker.run)
         self._thermalThread.finished.connect(self._thermalWorker.deleteLater)
         self._thermalThread.finished.connect(self._thermalThread.deleteLater)
+        self._thermalThread.finished.connect(pythoncom.CoUninitialize)
         self._thermalThread.start()
 
         self._loadAppSettings() # Called once, after thermal worker setup
@@ -459,6 +477,11 @@ class TCC_GUI(QtWidgets.QWidget):
 
         # Periodically save app settings
         self._saveAppSettings()
+
+    @QtCore.Slot(str, str)
+    def _onWorkerInitializationError(self, title: str, message: str):
+        print(f"TCC_GUI received worker initialization error: {title} - {message}") # For debugging
+        errorExit(title, message2=message)
 
     def updateGaugeTitles(self, gpuModel, cpuModel):
         if gpuModel: self._thermalGPU.setTitle(gpuModel)
