@@ -20,14 +20,34 @@ class QGaugeTrayIcon(QtGui.QPixmap):
         font = QtGui.QFont("Consolas", self._SIZE[1] // 2)
         painter.setFont(font)
 
-        def drawVal(y: int, val: int, limits: Optional[Tuple[int,int]]):
-            color = Colors.GREEN
-            if limits:
-                if val >= limits[1]: color = Colors.RED
-                elif val >= limits[0]: color = Colors.YELLOW
-            painter.setPen(QtGui.QColor.fromRgb(*color.rgb()))
-            x = 2 if val < 100 else -1
-            painter.drawText(x, y, str(val))
+        def drawVal(y: int, val: Optional[int], limits: Optional[Tuple[int,int]]): # val can now be Optional[int]
+            text_to_draw = "--"
+            # Default color, perhaps a bit dimmer or distinct for placeholder
+            color_rgb = Colors.GREY.rgb()
+
+            if val is not None:
+                text_to_draw = str(val)
+                # Determine color based on value and limits
+                current_color_enum = Colors.GREEN # Default for valid numbers
+                if limits:
+                    if val >= limits[1]: current_color_enum = Colors.RED
+                    elif val >= limits[0]: current_color_enum = Colors.YELLOW
+                color_rgb = current_color_enum.rgb()
+
+            painter.setPen(QtGui.QColor.fromRgb(*color_rgb))
+
+            # Simplified x calculation:
+            if val is not None:
+                if val >= 100 or val <= -10: # 3+ digits or negative with 2+ digits
+                    x = -1
+                elif val >= 0 and val < 10: # 1 digit positive
+                    x = 3 # Shift right for single digit
+                else: # 2 digits, or negative single digit
+                    x = 1
+            else: # val is None, text_to_draw is "--"
+                x = 1 # Position for "--"
+
+            painter.drawText(x, y, text_to_draw)
 
         drawVal(self._SIZE[1] // 2 - 1, temps[0], self._tempColorLimits[0] if self._tempColorLimits else None)
         drawVal(self._SIZE[1], temps[1], self._tempColorLimits[1] if self._tempColorLimits else None)
