@@ -16,6 +16,9 @@ GUI_ICON = 'icons/gaugeIcon.png'
 def resourcePath(relativePath: str = '.'):
     return os.path.join(sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.abspath('.'), relativePath)
 
+# Pre-load the application QIcon
+APP_QICON = QtGui.QIcon(resourcePath(GUI_ICON))
+
 def autorunTask(action: Literal['add', 'remove']) -> int:
     taskXmlFilePath = resourcePath("tcc_g15_task.xml")
 
@@ -41,14 +44,14 @@ def autorunTask(action: Literal['add', 'remove']) -> int:
 
 def alert(title: str, message: str, type: QtWidgets.QMessageBox.Icon = QtWidgets.QMessageBox.Icon.Information, *, message2: Optional[str] = None) -> None:
     msg = QtWidgets.QMessageBox(type, title, message)
-    msg.setWindowIcon(QtGui.QIcon(resourcePath(GUI_ICON)))
+    msg.setWindowIcon(APP_QICON)
     if message2: msg.setInformativeText(message2)
     msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
     msg.exec()
 
 def confirm(title: str, message: str, options: Optional[Tuple[str, str]] = None, dontAskAgain: bool = False) -> Tuple[bool, Optional[bool]]:
     msg = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Question, title, message, QtWidgets.QMessageBox.Yes |  QtWidgets.QMessageBox.No)
-    msg.setWindowIcon(QtGui.QIcon(resourcePath(GUI_ICON)))
+    msg.setWindowIcon(APP_QICON)
 
     if options is not None:
         msg.button(QtWidgets.QMessageBox.Yes).setText(options[0])
@@ -72,6 +75,56 @@ class QPeriodic:
         self._tmr.start()
     def stop(self):
         self._tmr.stop()
+
+class ThermalDataWorker(QtCore.QObject):
+    dataReady = QtCore.Signal(dict) # Emitting a dictionary
+
+    def __init__(self, awcc: AWCCThermal, update_period_ms: int, parent: Optional[QtCore.QObject] = None):
+        super().__init__(parent)
+        self._awcc = awcc
+        self._update_period_ms = update_period_ms
+        self._timer = None
+
+    def _fetchThermalData(self):
+        gpu_temp, gpu_rpm, cpu_temp, cpu_rpm = None, None, None, None
+        try:
+            gpu_temp = self._awcc.getFanRelatedTemp(self._awcc.GPUFanIdx)
+        except Exception as e:
+            print(f"Error fetching GPU temperature: {e}")
+
+        try:
+            gpu_rpm = self._awcc.getFanRPM(self._awcc.GPUFanIdx)
+        except Exception as e:
+            print(f"Error fetching GPU RPM: {e}")
+
+        try:
+            cpu_temp = self._awcc.getFanRelatedTemp(self._awcc.CPUFanIdx)
+        except Exception as e:
+            print(f"Error fetching CPU temperature: {e}")
+
+        try:
+            cpu_rpm = self._awcc.getFanRPM(self._awcc.CPUFanIdx)
+        except Exception as e:
+            print(f"Error fetching CPU RPM: {e}")
+
+        data = {
+            'gpu_temp': gpu_temp,
+            'gpu_rpm': gpu_rpm,
+            'cpu_temp': cpu_temp,
+            'cpu_rpm': cpu_rpm
+        }
+        self.dataReady.emit(data)
+
+    def run(self):
+        self._timer = QtCore.QTimer()
+        self._timer.setInterval(self._update_period_ms)
+        self._timer.timeout.connect(self._fetchThermalData)
+        self._timer.start()
+        self._fetchThermalData() # Perform an immediate first fetch
+
+    def stop(self):
+        if self._timer is not None and self._timer.isActive():
+            self._timer.stop()
 
 class ThermalMode(Enum):
     Balanced = 'Balanced'
@@ -175,6 +228,7 @@ class TCC_GUI(QtWidgets.QWidget):
         tray.setIcon(self.trayIcon)
         tray.setContextMenu(menu)
         tray.show()
+        self.traySystemIcon = tray # Store tray icon instance
 
         def onTrayIconActivated(trigger):
             if trigger == QtWidgets.QSystemTrayIcon.ActivationReason.DoubleClick:
@@ -316,67 +370,82 @@ class TCC_GUI(QtWidgets.QWidget):
         self._modeSwitch.setOnChange(onModeChange)
 
         def updateAppState():
-            # Get temps and RPMs
-            gpuTemp = self._awcc.getFanRelatedTemp(self._awcc.GPUFanIdx)
-            gpuRPM = self._awcc.getFanRPM(self._awcc.GPUFanIdx)
-            cpuTemp = self._awcc.getFanRelatedTemp(self._awcc.CPUFanIdx)
-            cpuRPM = self._awcc.getFanRPM(self._awcc.CPUFanIdx)
-            # Update UI gauges
-            if gpuTemp is not None: self._thermalGPU.setTemp(gpuTemp)
-            if gpuRPM is not None: self._thermalGPU.setFanRPM(gpuRPM)
-            if cpuTemp is not None: self._thermalCPU.setTemp(cpuTemp)
-            if cpuRPM is not None: self._thermalCPU.setFanRPM(cpuRPM)
-            # print(gpuTemp, gpuRPM, cpuTemp, cpuRPM)
+            pass
 
-            # Handle fail-safe
-            tempIsHigh = (
-                (gpuTemp is None) or (gpuTemp >= self.FAILSAFE_GPU_TEMP) or
-                (cpuTemp is None) or (cpuTemp >= self.FAILSAFE_CPU_TEMP)
-            )
-            
-            if tempIsHigh:
-                self._failsafeTempIsHighTs = time.time()
+        # Initialize ThermalDataWorker
+        self._thermalWorker = ThermalDataWorker(awcc=self._awcc, update_period_ms=self.TEMP_UPD_PERIOD_MS)
+        self._thermalThread = QtCore.QThread(self)
+        self._thermalWorker.moveToThread(self._thermalThread)
+        self._thermalWorker.dataReady.connect(self._onThermalDataUpdated)
+        self._thermalThread.started.connect(self._thermalWorker.run)
+        self._thermalThread.finished.connect(self._thermalWorker.deleteLater)
+        self._thermalThread.finished.connect(self._thermalThread.deleteLater)
+        self._thermalThread.start()
 
-            self._failsafeTempIsHighStartTs = (self._failsafeTempIsHighStartTs or time.time()) if tempIsHigh else None
+        self._loadAppSettings() # Called once, after thermal worker setup
 
-            # Trip fail-safe
-            if (self._failsafeOn and 
-                self._modeSwitch.getChecked() != ThermalMode.G_Mode.value and
-                tempIsHigh and
-                time.time() - self._failsafeTempIsHighStartTs > self.FAILSAFE_TRIGGER_DELAY_SEC
-            ):
-                self._failsafeTrippedPrevModeStr = self._modeSwitch.getChecked()
-                self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
-                self._toasterMessageCurrentMode(source='failsafe')
-                print(f'Fail-safe tripped at GPU={gpuTemp} CPU={cpuTemp}')
-
-            # Auto-reset failsafe
-            if (self._failsafeTrippedPrevModeStr is not None and
-                time.time() - self._failsafeTempIsHighTs > self.FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC
-            ):
-                self._modeSwitch.setChecked(self._failsafeTrippedPrevModeStr)
-                self._toasterMessageCurrentMode(source='failsafe')
-                self._failsafeTrippedPrevModeStr = None
-                print('Fail-safe reset')
-
-            # Update tray icon
-            self.trayIcon = self.trayIcon.resizeForScreen() or self.trayIcon
-            self.trayIcon.update((gpuTemp, cpuTemp), self._modeSwitch.getChecked() == ThermalMode.G_Mode.value)
-            tray.setIcon(self.trayIcon)
-            tray.setToolTip(f"GPU:    {gpuTemp} °C    {gpuRPM} RPM\nCPU:    {cpuTemp} °C    {cpuRPM} RPM\nMode:    {self._modeSwitch.getChecked().replace('_', ' ')}")
-            
-            # Periodically save app settings
-            self._saveAppSettings()
-
-        self._loadAppSettings()
-
-        self._updateGaugesTask = QPeriodic(self, self.TEMP_UPD_PERIOD_MS, updateAppState)
-        updateAppState()
-        self._updateGaugesTask.start()
+        # Old QPeriodic task removed.
 
         self.gModeHotKey = HotKey.HotKey(HotKey.G_MODE_KEY, self._gModeKeySignal)
         self._gModeKeySignal.connect(self._onGModeHotKeyPressed)
         self.gModeHotKey.start()
+
+    # Slot for thermal data updates from worker
+    @QtCore.Slot(dict)
+    def _onThermalDataUpdated(self, data: dict):
+        # Get temps and RPMs from data dictionary
+        gpuTemp = data.get('gpu_temp')
+        gpuRPM = data.get('gpu_rpm')
+        cpuTemp = data.get('cpu_temp')
+        cpuRPM = data.get('cpu_rpm')
+
+        # Update UI gauges
+        if gpuTemp is not None: self._thermalGPU.setTemp(gpuTemp)
+        if gpuRPM is not None: self._thermalGPU.setFanRPM(gpuRPM)
+        if cpuTemp is not None: self._thermalCPU.setTemp(cpuTemp)
+        if cpuRPM is not None: self._thermalCPU.setFanRPM(cpuRPM)
+        # print(gpuTemp, gpuRPM, cpuTemp, cpuRPM) # Original print statement, commented out
+
+        # Handle fail-safe
+        gpu_temp_valid_and_high = gpuTemp is not None and gpuTemp >= self.FAILSAFE_GPU_TEMP
+        cpu_temp_valid_and_high = cpuTemp is not None and cpuTemp >= self.FAILSAFE_CPU_TEMP
+        tempIsHigh = gpu_temp_valid_and_high or cpu_temp_valid_and_high
+
+        if tempIsHigh:
+            self._failsafeTempIsHighTs = time.time()
+
+        self._failsafeTempIsHighStartTs = (self._failsafeTempIsHighStartTs or time.time()) if tempIsHigh else None
+
+        # Trip fail-safe
+        if (self._failsafeOn and
+            self._modeSwitch.getChecked() != ThermalMode.G_Mode.value and
+            tempIsHigh and
+            self._failsafeTempIsHighStartTs is not None and # Ensure _failsafeTempIsHighStartTs is not None before comparison
+            time.time() - self._failsafeTempIsHighStartTs > self.FAILSAFE_TRIGGER_DELAY_SEC
+        ):
+            self._failsafeTrippedPrevModeStr = self._modeSwitch.getChecked()
+            self._modeSwitch.setChecked(ThermalMode.G_Mode.value)
+            self._toasterMessageCurrentMode(source='failsafe')
+            print(f'Fail-safe tripped at GPU={gpuTemp} CPU={cpuTemp}')
+
+        # Auto-reset failsafe
+        if (self._failsafeTrippedPrevModeStr is not None and
+            time.time() - self._failsafeTempIsHighTs > self.FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC
+        ):
+            self._modeSwitch.setChecked(self._failsafeTrippedPrevModeStr)
+            self._toasterMessageCurrentMode(source='failsafe')
+            self._failsafeTrippedPrevModeStr = None
+            print('Fail-safe reset')
+
+        # Update tray icon
+        self.trayIcon = self.trayIcon.resizeForScreen() or self.trayIcon
+        self.trayIcon.update((gpuTemp, cpuTemp), self._modeSwitch.getChecked() == ThermalMode.G_Mode.value)
+        if self.traySystemIcon: # Ensure traySystemIcon exists
+            self.traySystemIcon.setIcon(self.trayIcon)
+            self.traySystemIcon.setToolTip(f"GPU:    {gpuTemp}°C    {gpuRPM} RPM\nCPU:    {cpuTemp}°C    {cpuRPM} RPM\nMode:    {self._modeSwitch.getChecked().replace('_', ' ')}")
+
+        # Periodically save app settings
+        self._saveAppSettings()
 
     def updateGaugeTitles(self, gpuModel, cpuModel):
         if gpuModel: self._thermalGPU.setTitle(gpuModel)
@@ -417,11 +486,16 @@ class TCC_GUI(QtWidgets.QWidget):
         errorExit(message, message2)
 
     def _destroy(self):
+        if hasattr(self, '_thermalWorker') and self._thermalWorker is not None:
+            self._thermalWorker.stop()
+        if hasattr(self, '_thermalThread') and self._thermalThread is not None:
+            self._thermalThread.quit()
+            self._thermalThread.wait(500) # Wait for 500ms
+
         if self.gModeHotKey is not None:
             self.gModeHotKey.stop()
             self.gModeHotKey.wait()
-        if self.gModeHotKey is not None:
-            self._updateGaugesTask.stop()
+        # Removed cleanup for _updateGaugesTask as it's no longer used.
         print('Cleanup: done')
 
     def _onGModeHotKeyPressed(self):
