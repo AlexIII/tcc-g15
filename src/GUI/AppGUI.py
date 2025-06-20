@@ -16,8 +16,21 @@ GUI_ICON = 'icons/gaugeIcon.png'
 def resourcePath(relativePath: str = '.'):
     return os.path.join(sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.abspath('.'), relativePath)
 
-# Pre-load the application QIcon
-APP_QICON = QtGui.QIcon(resourcePath(GUI_ICON))
+_APP_QICON_INSTANCE: Optional[QtGui.QIcon] = None # Using Optional type hint
+
+def get_app_qicon() -> QtGui.QIcon:
+    global _APP_QICON_INSTANCE
+    if _APP_QICON_INSTANCE is None:
+        # This function is intended to be called only when a QApplication instance exists.
+        # errorExit() and runApp() ensure a QApplication is created before alerts or TCC_GUI are shown.
+        if QtWidgets.QApplication.instance() is None:
+            # This case should ideally not be hit if used correctly.
+            # If it is, it indicates a logic error elsewhere or misuse of get_app_qicon.
+            # Raising an error or logging might be appropriate for debugging such a scenario.
+            # For now, we proceed, but this highlights dependency on QApplication.
+            print("Warning: get_app_qicon() called before QApplication initialization!")
+        _APP_QICON_INSTANCE = QtGui.QIcon(resourcePath(GUI_ICON))
+    return _APP_QICON_INSTANCE
 
 def autorunTask(action: Literal['add', 'remove']) -> int:
     taskXmlFilePath = resourcePath("tcc_g15_task.xml")
@@ -44,14 +57,14 @@ def autorunTask(action: Literal['add', 'remove']) -> int:
 
 def alert(title: str, message: str, type: QtWidgets.QMessageBox.Icon = QtWidgets.QMessageBox.Icon.Information, *, message2: Optional[str] = None) -> None:
     msg = QtWidgets.QMessageBox(type, title, message)
-    msg.setWindowIcon(APP_QICON)
+    msg.setWindowIcon(get_app_qicon())
     if message2: msg.setInformativeText(message2)
     msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
     msg.exec()
 
 def confirm(title: str, message: str, options: Optional[Tuple[str, str]] = None, dontAskAgain: bool = False) -> Tuple[bool, Optional[bool]]:
     msg = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Question, title, message, QtWidgets.QMessageBox.Yes |  QtWidgets.QMessageBox.No)
-    msg.setWindowIcon(APP_QICON)
+    msg.setWindowIcon(get_app_qicon())
 
     if options is not None:
         msg.button(QtWidgets.QMessageBox.Yes).setText(options[0])
