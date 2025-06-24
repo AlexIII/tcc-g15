@@ -1,8 +1,8 @@
 import threading
 import win32con
-from ctypes import *
-from ctypes.wintypes import *
-from PySide6.QtCore import *
+from ctypes import windll, byref
+from ctypes.wintypes import MSG
+from PySide6.QtCore import QThread, Signal
 
 G_MODE_KEY = 0x80
 

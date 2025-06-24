@@ -1,6 +1,6 @@
 from typing import Optional, NewType
 from Backend.AWCCWmiWrapper import AWCCWmiWrapper
-import wmi # type: ignore
+from wmi import WMI # type: ignore
 
 class NoAWCCWMIClass(Exception):
     def __init__(self) -> None:
@@ -19,7 +19,7 @@ class AWCCThermal:
     def __init__(self, awcc: Optional[AWCCWmiWrapper] = None) -> None:
         if awcc is None:
             try:
-                awccClass = wmi.WMI(namespace="root\\WMI").AWCCWmiMethodFunction
+                awccClass = WMI(namespace="root\\WMI").AWCCWmiMethodFunction
             except Exception as ex:
                 print(ex)
                 raise NoAWCCWMIClass()

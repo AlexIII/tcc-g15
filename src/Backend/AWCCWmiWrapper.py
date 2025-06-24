@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import Optional, Tuple, Union
-import wmi # type: ignore
+from wmi import _wmi_object # type: ignore
 
 class AWCCWmiWrapper:
     SENSOR_ID_FIRST = 0x01
@@ -16,7 +16,7 @@ class AWCCWmiWrapper:
     _balancedModePatch = None # type: Optional[Union[False, int]]
     _USTT_Balanced = 0xA0
 
-    def __init__(self, awcc: wmi._wmi_object) -> None:
+    def __init__(self, awcc: _wmi_object) -> None:
         self._awcc = awcc
 
     def GetSensorTemperature(self, sensorId: int) -> Optional[int]:

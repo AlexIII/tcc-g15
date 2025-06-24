@@ -1,4 +1,4 @@
-from typing import *
+from typing import Tuple, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 from GUI.AppColors import Colors
 

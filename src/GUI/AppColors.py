@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import *
+from typing import Tuple
 
 class Colors(Enum):
     DARK_GREY   = '#202020'

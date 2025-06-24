@@ -1,12 +1,12 @@
 from typing import Optional
-import wmi # type: ignore
+from wmi import WMI # type: ignore
 
 class DetectHardware:
     CPUFanIdx = 0
     GPUFanIdx = 1
 
     def __init__(self) -> None:
-        self._wmi = wmi.WMI()
+        self._wmi = WMI()
 
     def getHardwareName(self, fanIdx: int) -> Optional[str]:
         if fanIdx == self.CPUFanIdx:
