@@ -106,6 +106,8 @@ Big thanks to the amazing people who have contributed to the project:
 ## Changelog
 
 - 1.6.5
+  - Update dependencies (dev)
+  - Update imports (dev)
   - Fix: handle incompatible mode settings (dev)
 
 - 1.6.4
