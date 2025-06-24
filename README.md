@@ -105,6 +105,9 @@ Big thanks to the amazing people who have contributed to the project:
 
 ## Changelog
 
+- 1.6.5
+  - Fix: handle incompatible mode settings (dev)
+
 - 1.6.4
   - Fix: do not limit displayed RPM value
 

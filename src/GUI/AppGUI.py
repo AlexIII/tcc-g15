@@ -100,7 +100,7 @@ class TCC_GUI(QtWidgets.QWidget):
     FAILSAFE_TRIGGER_DELAY_SEC = 8
     FAILSAFE_RESET_AFTER_TEMP_IS_OK_FOR_SEC = 60
     APP_NAME = "Thermal Control Center for Dell G15"
-    APP_VERSION = "1.6.4"
+    APP_VERSION = "1.6.5"
     APP_DESCRIPTION = "This app is an open-source replacement for Alienware Control Center "
     APP_URL = "github.com/AlexIII/tcc-g15"
 
@@ -471,7 +471,9 @@ class TCC_GUI(QtWidgets.QWidget):
         self.settings.setValue(SettingsKey.FailSafeIsOnFlag.value, self._failsafeOn)
 
     def _loadAppSettings(self):
-        savedMode = self.settings.value(SettingsKey.Mode.value) or ThermalMode.Balanced.value
+        savedMode = self.settings.value(SettingsKey.Mode.value)
+        if savedMode not in [m.value for m in ThermalMode]:
+            savedMode = ThermalMode.Balanced.value
         self._modeSwitch.setChecked(savedMode)
         savedSpeed = self.settings.value(SettingsKey.CPUFanSpeed.value)
         self._thermalCPU.setSpeedSlider(savedSpeed)
