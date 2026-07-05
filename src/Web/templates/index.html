@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCC-G15 Web Monitor</title>
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a1a;color:#ddd;min-height:100vh}
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#252525;border-bottom:1px solid #333}
+.header h1{font-size:16px;font-weight:600}
+.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px}
+.status-dot.on{background:#34a853}
+.status-dot.off{background:#f44336}
+.container{max-width:80%;margin:0 auto;padding:16px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:600px){.cards{grid-template-columns:1fr}}
+.card{background:#252525;border-radius:8px;padding:16px;border:1px solid #333}
+.card h2{font-size:14px;color:#aaa;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.metric{margin-bottom:10px}
+.metric-label{font-size:12px;color:#888;margin-bottom:4px}
+.metric-bar{height:24px;background:#333;border-radius:4px;overflow:hidden;position:relative}
+.metric-fill{height:100%;border-radius:4px;transition:width .3s}
+.metric-value{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.color-green{background:linear-gradient(90deg,#34a853,#4caf50)}
+.color-yellow{background:linear-gradient(90deg,#f1c232,#ffc107)}
+.color-red{background:linear-gradient(90deg,#f44336,#e53935)}
+.controls{background:#252525;border-radius:8px;padding:16px;border:1px solid #333;margin-bottom:16px}
+.controls h2{font-size:14px;color:#aaa;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.mode-btns{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.mode-btn{padding:8px 20px;border:1px solid #555;border-radius:6px;background:#333;color:#ddd;cursor:pointer;font-size:14px;transition:all .2s}
+.mode-btn:hover{background:#444}
+.mode-btn.active{background:#1A6497;border-color:#1A6497;color:#fff}
+.fan-control{margin-top:12px}
+.fan-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.fan-row label{min-width:90px;font-size:13px;color:#aaa}
+.fan-row input[type=range]{flex:1;accent-color:#1A6497}
+.fan-row .fan-val{min-width:50px;text-align:right;font-size:13px;font-weight:600}
+.fan-row.disabled{opacity:.4;pointer-events:none}
+.chart-card{background:#252525;border-radius:8px;padding:16px;border:1px solid #333;margin-bottom:16px}
+.chart-card h2{font-size:14px;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
+.chart-btns{display:flex;gap:4px}
+.chart-btn{padding:4px 10px;border:1px solid #444;border-radius:4px;background:#333;color:#aaa;cursor:pointer;font-size:11px}
+.chart-btn.active{background:#1A6497;border-color:#1A6497;color:#fff}
+.chart-wrap{height:200px;position:relative}
+.footer{text-align:center;padding:12px;color:#555;font-size:12px}
+/* Tabs */
+.tabs{display:flex;gap:0;background:#252525;border-bottom:1px solid #333;padding:0 20px}
+.tab-btn{padding:10px 20px;border:none;background:transparent;color:#888;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;transition:all .2s}
+.tab-btn:hover{color:#ccc}
+.tab-btn.active{color:#fff;border-bottom-color:#1A6497}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+/* Process table */
+.proc-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.proc-toolbar label{font-size:13px;color:#aaa}
+.proc-toolbar select{padding:6px 10px;border:1px solid #555;border-radius:4px;background:#333;color:#ddd;font-size:13px}
+.proc-toolbar input[type=number]{width:60px;padding:6px 10px;border:1px solid #555;border-radius:4px;background:#333;color:#ddd;font-size:13px}
+.proc-toolbar button{padding:6px 16px;border:1px solid #555;border-radius:4px;background:#333;color:#ddd;cursor:pointer;font-size:13px;transition:all .2s}
+.proc-toolbar button:hover{background:#444}
+.proc-toolbar button:disabled{opacity:.5;cursor:not-allowed}
+.proc-table-wrap{overflow-x:auto;background:#252525;border-radius:8px;border:1px solid #333}
+.proc-table{border-collapse:collapse;white-space:nowrap;font-size:13px;table-layout:fixed;width:100%}
+.proc-table thead{position:sticky;top:0;z-index:1}
+.proc-table th{background:#2a2a2a;color:#aaa;padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #333;cursor:pointer;user-select:none;position:relative;overflow:hidden;text-overflow:ellipsis}
+.proc-table th:hover{color:#fff}
+.proc-table th .sort-arrow{font-size:10px;margin-left:4px}
+.proc-table .resize-handle{position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:transparent;z-index:2}
+.proc-table .resize-handle:hover,.proc-table .resize-handle.active{background:#1A6497}
+.proc-table td{padding:6px 12px;border-bottom:1px solid #2a2a2a;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0}
+.proc-table tr:hover td{background:#2a2a2a}
+.proc-bar{display:inline-block;height:14px;border-radius:2px;vertical-align:middle;margin-right:6px;min-width:2px}
+.proc-bar.cpu{background:#1A6497}
+.proc-bar.mem{background:#f1c232}
+.proc-empty{text-align:center;padding:40px;color:#555;font-size:14px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>TCC-G15 Web Monitor</h1>
+  <div><span class="status-dot off" id="statusDot"></span><span id="statusText" style="font-size:13px;color:#888">Connecting...</span></div>
+</div>
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('processes')">Processes</button>
+</div>
+<div class="tab-panel active" id="tab-dashboard">
+<div class="container">
+  <div class="cards">
+    <div class="card">
+      <h2>GPU</h2>
+      <div class="metric">
+        <div class="metric-label">Temperature</div>
+        <div class="metric-bar"><div class="metric-fill color-green" id="gpuTempBar" style="width:0%"></div><div class="metric-value" id="gpuTempVal">-- °C</div></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Fan Speed</div>
+        <div class="metric-bar"><div class="metric-fill color-green" id="gpuRpmBar" style="width:0%"></div><div class="metric-value" id="gpuRpmVal">-- RPM</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>CPU</h2>
+      <div class="metric">
+        <div class="metric-label">Temperature</div>
+        <div class="metric-bar"><div class="metric-fill color-green" id="cpuTempBar" style="width:0%"></div><div class="metric-value" id="cpuTempVal">-- °C</div></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Fan Speed</div>
+        <div class="metric-bar"><div class="metric-fill color-green" id="cpuRpmBar" style="width:0%"></div><div class="metric-value" id="cpuRpmVal">-- RPM</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <h2>Controls</h2>
+    <div class="mode-btns">
+      <button class="mode-btn" data-mode="Balanced" onclick="setMode('Balanced')">Balanced</button>
+      <button class="mode-btn" data-mode="G_Mode" onclick="setMode('G_Mode')">G-Mode</button>
+      <button class="mode-btn" data-mode="Custom" onclick="setMode('Custom')">Custom</button>
+    </div>
+    <div class="fan-control">
+      <div class="fan-row disabled" id="gpuFanRow">
+        <label>GPU Fan</label>
+        <input type="range" min="0" max="120" value="0" id="gpuFanSlider" oninput="onFanSlider()">
+        <span class="fan-val" id="gpuFanVal">0</span>
+      </div>
+      <div class="fan-row disabled" id="cpuFanRow">
+        <label>CPU Fan</label>
+        <input type="range" min="0" max="120" value="0" id="cpuFanSlider" oninput="onFanSlider()">
+        <span class="fan-val" id="cpuFanVal">0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h2>Temperature History <div class="chart-btns"><button class="chart-btn active" data-range="3600" onclick="setChartRange(3600,this)">1H</button><button class="chart-btn" data-range="21600" onclick="setChartRange(21600,this)">6H</button><button class="chart-btn" data-range="86400" onclick="setChartRange(86400,this)">24H</button></div></h2>
+    <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
+  </div>
+
+  <div class="footer">TCC-G15 Web Monitor &mdash; <a href="https://github.com/AlexIII/tcc-g15" style="color:#1A6497">github.com/AlexIII/tcc-g15</a></div>
+</div>
+</div>
+
+<div class="tab-panel" id="tab-processes">
+<div class="container">
+  <div class="proc-toolbar">
+    <label>Sort by:</label>
+    <select id="procSort" onchange="onProcParamChange()">
+      <option value="cpu">CPU %</option>
+      <option value="memory">Memory %</option>
+    </select>
+    <label>Count:</label>
+    <input type="number" id="procNum" value="20" min="1" max="100" onchange="onProcParamChange()">
+    <span id="procStatus" style="font-size:12px;color:#555"></span>
+  </div>
+  <div class="proc-table-wrap">
+    <table class="proc-table">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th style="width:60px" data-sort="pid">PID <span class="sort-arrow"></span></th>
+          <th style="width:160px" data-sort="name">Name <span class="sort-arrow"></span></th>
+          <th style="width:90px" data-sort="cpu_percent">CPU % <span class="sort-arrow"></span></th>
+          <th style="width:90px" data-sort="memory_mb">Memory <span class="sort-arrow"></span></th>
+          <th style="width:80px" data-sort="memory_percent">Mem % <span class="sort-arrow"></span></th>
+          <th style="width:60px" data-sort="threads">Threads <span class="sort-arrow"></span></th>
+          <th style="width:150px" data-sort="create_time">Start Time <span class="sort-arrow"></span></th>
+          <th data-sort="exe">Path <span class="sort-arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="procBody">
+      </tbody>
+    </table>
+  </div>
+  <div class="proc-empty" id="procEmpty">Loading processes...</div>
+</div>
+</div>
+
+<script>
+// --- IndexedDB ---
+const DB_NAME='TCC_G15_History',DB_STORE='temps',DB_VER=1;
+let db=null;
+function openDB(){return new Promise(r=>{const rq=indexedDB.open(DB_NAME,DB_VER);rq.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains(DB_STORE))d.createObjectStore(DB_STORE,{keyPath:'ts'})};rq.onsuccess=e=>{db=e.target.result;r(db)};rq.onerror=()=>r(null)})}
+async function dbAdd(ts,gpu,cpu){if(!db)return;const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).put({ts,gpu,cpu})}
+async function dbGetRange(since){if(!db)return[];return new Promise(r=>{const tx=db.transaction(DB_STORE,'readonly');const rq=tx.objectStore(DB_STORE).getAll(IDBKeyRange.lowerBound(since));rq.onsuccess=()=>r(rq.result);rq.onerror=()=>r([])})}
+async function dbClearOld(maxAgeMs){if(!db)return;const cutoff=Date.now()-maxAgeMs;const tx=db.transaction(DB_STORE,'readwrite');const store=tx.objectStore(DB_STORE);const rq=store.openCursor();rq.onsuccess=e=>{const c=e.target.result;if(!c)return;if(c.key<cutoff)c.delete().onsuccess=()=>c.continue();else c.continue()}}
+openDB();
+
+// --- Chart ---
+const ctx=document.getElementById('tempChart').getContext('2d');
+const chartData={labels:[],datasets:[{label:'GPU',data:[],borderColor:'#f44336',backgroundColor:'rgba(244,67,54,.1)',pointRadius:0,borderWidth:2,tension:.3},{label:'CPU',data:[],borderColor:'#ffc107',backgroundColor:'rgba(255,193,7,.1)',pointRadius:0,borderWidth:2,tension:.3}]};
+const chart=new Chart(ctx,{type:'line',data:chartData,options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},scales:{x:{display:true,ticks:{maxTicksLimit:8,color:'#666',font:{size:10}},grid:{color:'#333'}},y:{min:0,max:110,ticks:{color:'#666',font:{size:10}},grid:{color:'#333'}}},plugins:{legend:{labels:{color:'#aaa',font:{size:11}}}}}});
+let chartRange=3600;
+function setChartRange(s,btn){chartRange=s;document.querySelectorAll('.chart-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');updateChart()}
+
+async function updateChart(){
+  const since=Date.now()-chartRange*1000;
+  const data=await dbGetRange(since);
+  chart.data.labels=data.map(d=>{const dt=new Date(d.ts);return dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0')});
+  chart.data.datasets[0].data=data.map(d=>d.gpu);
+  chart.data.datasets[1].data=data.map(d=>d.cpu);
+  chart.update();
+}
+
+// --- SSE Status Stream ---
+let pollCount=0;
+let evtSource=null;
+let statusConnected=false;
+
+function connectStatusStream(){
+  if(evtSource)evtSource.close();
+  evtSource=new EventSource('/api/status/stream');
+  evtSource.onmessage=function(e){
+    try{
+      const d=JSON.parse(e.data);
+      statusConnected=true;
+      document.getElementById('statusDot').className='status-dot on';
+      document.getElementById('statusText').textContent='Connected';
+      updateUI(d);
+      dbAdd(Date.now(),d.gpu_temp,d.cpu_temp);
+      if(++pollCount%5===0){dbClearOld(86400000*2);updateChart()}
+    }catch(err){console.error('SSE parse error:',err)}
+  };
+  evtSource.onerror=function(){
+    statusConnected=false;
+    document.getElementById('statusDot').className='status-dot off';
+    document.getElementById('statusText').textContent='Disconnected';
+  };
+}
+connectStatusStream();
+
+// --- Visibility API: pause SSE when tab is hidden ---
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){
+    // Tab hidden: close SSE connections to free server threads
+    if(evtSource){evtSource.close();evtSource=null}
+    if(procEvtSource){procEvtSource.close();procEvtSource=null}
+  }else{
+    // Tab visible: reconnect streams that should be active
+    connectStatusStream();
+    if(procActiveTab){startProcStream()}
+  }
+});
+
+function updateUI(d){
+  const gpuTemp=d.gpu_temp,cpuTemp=d.cpu_temp,gpuRpm=d.gpu_rpm,cpuRpm=d.cpu_rpm;
+  setBar('gpuTempBar','gpuTempVal',gpuTemp,100,'°C',[72,85]);
+  setBar('cpuTempBar','cpuTempVal',cpuTemp,110,'°C',[85,95]);
+  setBar('gpuRpmBar','gpuRpmVal',gpuRpm,5500,' RPM',null);
+  setBar('cpuRpmBar','cpuRpmVal',cpuRpm,5500,' RPM',null);
+  if(!pendingMode){
+    document.querySelectorAll('.mode-btn').forEach(b=>{b.classList.toggle('active',b.dataset.mode===d.mode)});
+    const isCustom=d.mode==='Custom';
+    document.getElementById('gpuFanRow').className='fan-row'+(isCustom?'':' disabled');
+    document.getElementById('cpuFanRow').className='fan-row'+(isCustom?'':' disabled');
+    if(isCustom&&!fanTimer){
+      if(d.gpu_fan_speed!==null){document.getElementById('gpuFanSlider').value=d.gpu_fan_speed;document.getElementById('gpuFanVal').textContent=d.gpu_fan_speed}
+      if(d.cpu_fan_speed!==null){document.getElementById('cpuFanSlider').value=d.cpu_fan_speed;document.getElementById('cpuFanVal').textContent=d.cpu_fan_speed}
+    }
+  }
+}
+
+function setBar(barId,valId,value,max,unit,limits){
+  const pct=Math.max(0,Math.min(100,value/max*100));
+  document.getElementById(barId).style.width=pct+'%';
+  const el=document.getElementById(barId);
+  if(limits){
+    if(value>=limits[1])el.className='metric-fill color-red';
+    else if(value>=limits[0])el.className='metric-fill color-yellow';
+    else el.className='metric-fill color-green';
+  }
+  document.getElementById(valId).textContent=(value!==null?value:'--')+unit;
+}
+
+let pendingMode=null,pendingModeTimer=null;
+function setMode(mode){
+  pendingMode=mode;
+  clearTimeout(pendingModeTimer);
+  pendingModeTimer=setTimeout(()=>{pendingMode=null},3000);
+  document.querySelectorAll('.mode-btn').forEach(b=>{b.classList.toggle('active',b.dataset.mode===mode)});
+  const isCustom=mode==='Custom';
+  document.getElementById('gpuFanRow').className='fan-row'+(isCustom?'':' disabled');
+  document.getElementById('cpuFanRow').className='fan-row'+(isCustom?'':' disabled');
+  fetch('/api/mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})}).catch(()=>{});
+}
+let fanTimer=null;
+function onFanSlider(){
+  document.getElementById('gpuFanVal').textContent=document.getElementById('gpuFanSlider').value;
+  document.getElementById('cpuFanVal').textContent=document.getElementById('cpuFanSlider').value;
+  clearTimeout(fanTimer);
+  fanTimer=setTimeout(()=>{
+    fetch('/api/fan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gpu_speed:+document.getElementById('gpuFanSlider').value,cpu_speed:+document.getElementById('cpuFanSlider').value})}).catch(()=>{})
+  },500);
+}
+
+// --- Tab Switching ---
+let procEvtSource=null;
+let procActiveTab=false;
+
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active',(name==='dashboard'&&i===0)||(name==='processes'&&i===1));
+  });
+  document.getElementById('tab-dashboard').classList.toggle('active',name==='dashboard');
+  document.getElementById('tab-processes').classList.toggle('active',name==='processes');
+
+  if(name==='processes'){
+    procActiveTab=true;
+    startProcStream();
+  }else{
+    // Leaving processes tab: close stream to free server thread
+    procActiveTab=false;
+    if(procEvtSource){procEvtSource.close();procEvtSource=null}
+  }
+}
+
+// --- Process SSE Stream ---
+function startProcStream(){
+  if(procEvtSource)procEvtSource.close();
+  const sortBy=document.getElementById('procSort').value;
+  const num=document.getElementById('procNum').value;
+  const statusEl=document.getElementById('procStatus');
+  statusEl.textContent='Connecting...';
+  procEvtSource=new EventSource('/api/processes/stream?type='+encodeURIComponent(sortBy)+'&num='+encodeURIComponent(num));
+  procEvtSource.onmessage=function(e){
+    try{
+      const data=JSON.parse(e.data);
+      if(!data.ok){statusEl.textContent='Error: '+(data.error||'Failed');return}
+      renderProcesses(data.processes);
+      statusEl.textContent=data.processes.length+' processes — '+new Date().toLocaleTimeString();
+    }catch(err){console.error('proc SSE parse error:',err)}
+  };
+  procEvtSource.onerror=function(){
+    statusEl.textContent='Disconnected — retrying...';
+  };
+}
+
+function onProcParamChange(){
+  if(procActiveTab)startProcStream();
+}
+
+// --- Client-side sort ---
+let lastProcData=[];
+let sortCol='';
+let sortAsc=true;
+
+function renderProcesses(procs){
+  try{
+    if(procs&&procs.length>0) lastProcData=procs;
+    const body=document.getElementById('procBody');
+    const empty=document.getElementById('procEmpty');
+    const data=sortCol?doSort(lastProcData,sortCol,sortAsc):lastProcData;
+    if(!data||data.length===0){
+      body.innerHTML='';
+      empty.textContent='No processes found';
+      empty.style.display='block';
+      return;
+    }
+    empty.style.display='none';
+    const maxCpu=Math.max(...data.map(p=>p.cpu_percent),1);
+    const maxMem=Math.max(...data.map(p=>p.memory_percent),1);
+    body.innerHTML=data.map((p,i)=>{
+      const cpuW=Math.min(100,p.cpu_percent/maxCpu*100);
+      const memW=Math.min(100,p.memory_percent/maxMem*100);
+      const name=escHtml(p.name);
+      const exe=escHtml(p.exe);
+      return'<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td>'+p.pid+'</td>'
+        +'<td title="'+name+'">'+name+'</td>'
+        +'<td><span class="proc-bar cpu" style="width:'+cpuW+'px"></span>'+p.cpu_percent+'%</td>'
+        +'<td>'+p.memory_mb+' MB</td>'
+        +'<td><span class="proc-bar mem" style="width:'+memW+'px"></span>'+p.memory_percent+'%</td>'
+        +'<td>'+p.threads+'</td>'
+        +'<td>'+escHtml(p.create_time)+'</td>'
+        +'<td title="'+exe+'">'+exe+'</td>'
+        +'</tr>';
+    }).join('');
+    updateSortArrows();
+  }catch(e){
+    console.error('renderProcesses error:',e);
+    document.getElementById('procStatus').textContent='Render error: '+e.message;
+  }
+}
+
+function doSort(data,col,asc){
+  const numCols=['pid','cpu_percent','memory_mb','memory_percent','threads'];
+  const isNum=numCols.includes(col);
+  return data.slice().sort((a,b)=>{
+    let va=a[col],vb=b[col];
+    if(isNum){va=va||0;vb=vb||0}
+    else{va=(va||'').toString().toLowerCase();vb=(vb||'').toString().toLowerCase()}
+    if(va<vb)return asc?-1:1;
+    if(va>vb)return asc?1:-1;
+    return 0;
+  });
+}
+
+function updateSortArrows(){
+  document.querySelectorAll('.proc-table th[data-sort]').forEach(th=>{
+    const arrow=th.querySelector('.sort-arrow');
+    if(!arrow)return;
+    if(th.dataset.sort===sortCol){
+      arrow.textContent=sortAsc?' ▲':' ▼';
+    }else{
+      arrow.textContent='';
+    }
+  });
+}
+
+document.querySelectorAll('.proc-table th[data-sort]').forEach(th=>{
+  th.addEventListener('click',e=>{
+    if(e.target.classList.contains('resize-handle'))return;
+    const col=th.dataset.sort;
+    if(sortCol===col){sortAsc=!sortAsc}
+    else{sortCol=col;sortAsc=true}
+    renderProcesses(null);
+  });
+});
+
+function escHtml(s){
+  if(!s)return'';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// --- Resizable Columns ---
+(function(){
+  const table=document.querySelector('.proc-table');
+  if(!table)return;
+  const headers=table.querySelectorAll('th');
+  let resizing=null,startX=0,startWidth=0;
+  headers.forEach(th=>{
+    const handle=document.createElement('div');
+    handle.className='resize-handle';
+    th.appendChild(handle);
+    handle.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      resizing=th;
+      startX=e.clientX;
+      startWidth=th.offsetWidth;
+      handle.classList.add('active');
+      document.body.style.cursor='col-resize';
+      document.body.style.userSelect='none';
+    });
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!resizing)return;
+    const diff=e.clientX-startX;
+    const newWidth=Math.max(40,startWidth+diff);
+    resizing.style.width=newWidth+'px';
+  });
+  document.addEventListener('mouseup',()=>{
+    if(!resizing)return;
+    resizing.querySelector('.resize-handle').classList.remove('active');
+    resizing=null;
+    document.body.style.cursor='';
+    document.body.style.userSelect='';
+  });
+})();
+
+</script>
+</body>
+</html>

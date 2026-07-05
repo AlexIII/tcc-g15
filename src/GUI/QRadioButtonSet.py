@@ -23,8 +23,11 @@ class QRadioButtonSet(QtWidgets.QWidget):
             rb._value = value
             layout.addWidget(rb)
             self._buttons[value] = rb
-            rb.setChecked(True)
             rb.toggled.connect(self._onClicked)
+
+        # Set first option as default
+        if options:
+            self._buttons[options[0][1]].setChecked(True)
 
     def setChecked(self, value: str):
         self._buttons[value].setChecked(True)
