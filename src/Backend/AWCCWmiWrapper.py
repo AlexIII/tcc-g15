@@ -1,6 +1,10 @@
 from enum import Enum
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
+import logging
+import time
 from wmi import _wmi_object # type: ignore
+
+log = logging.getLogger(__name__)
 
 class AWCCWmiWrapper:
     SENSOR_ID_FIRST = 0x01
@@ -13,7 +17,6 @@ class AWCCWmiWrapper:
         Balanced = 0x97
         G_Mode = 0xAB
 
-    _balancedModePatch = None # type: Optional[Union[False, int]]
     _USTT_Balanced = 0xA0
 
     def __init__(self, awcc: _wmi_object) -> None:
@@ -68,17 +71,30 @@ class AWCCWmiWrapper:
     def ApplyThermalMode(self, mode: ThermalMode) -> bool:
         if not isinstance(mode, self.ThermalMode):
             raise Exception('Invalid argument: mode is not instance of ThermalMode')
-        value = mode.value
-
-        # Patch balanced mode value for laptops with USTT support
+        candidates = (mode.value,)
         if mode == self.ThermalMode.Balanced:
-            if self._balancedModePatch is None:
-                self._balancedModePatch = self._USTT_Balanced if self._Thermal_Control(self._USTT_Balanced) else False
-                print(f'Balanced mode patch: {self._balancedModePatch}')
-            if isinstance(self._balancedModePatch, int):
-                value = self._balancedModePatch
+            # Query each transition; a cached failed USTT probe (False) must
+            # never become the Custom profile ID (0).
+            value = self._call('Thermal_Information', 0x0A)
+            if value not in (self.ThermalMode.Balanced.value, self._USTT_Balanced):
+                log.error('Invalid or unavailable Balanced profile ID: %r', value)
+                return False
+            candidates = (value, self.ThermalMode.Balanced.value) if value == self._USTT_Balanced else (value,)
 
-        return self._Thermal_Control(value)
+        for value in candidates:
+            if not self._Thermal_Control(value):
+                log.warning('Thermal profile %d was rejected', value)
+                continue
+            # Allow a short firmware settling period, but never report success
+            # solely from the command status (0).
+            for attempt in range(3):
+                if attempt:
+                    time.sleep(0.1)
+                actual = self._call('Thermal_Information', 0x0B)
+                if actual == value:
+                    return True
+            log.error('Thermal profile readback mismatch: expected=%d, actual=%r', value, actual)
+        return False
 
     def SetAddonSpeedPercent(self, fanId: int, speed: int) -> bool:
         if not (fanId in range(self.FAN_ID_FIRST, self.FAN_ID_LAST + 1)): return False
@@ -87,13 +103,24 @@ class AWCCWmiWrapper:
         return self._call('Thermal_Control', arg) == 0
 
     def _Thermal_Control(self, arg: int) -> bool:
+        if type(arg) is not int or not 0 <= arg <= 0xFF:
+            return False
         arg = ((arg & 0xFF) << 8) | 1
         return self._call('Thermal_Control', arg) == 0
         
     def _call(self, method: str, arg: int) -> Optional[int]:
-        if not hasattr(self._awcc, method) or not callable(getattr(self._awcc, method)):
+        try:
+            func = getattr(self._awcc, method, None)
+            if not callable(func):
+                return None
+            result = func(arg)
+            if not isinstance(result, (tuple, list)) or len(result) != 1:
+                return None
+            val = result[0]
+        except Exception:
+            log.exception('WMI %s failed (arg=0x%08X)', method, arg)
             return None
-        val: int = getattr(self._awcc, method)(arg)[0]
-        if not isinstance(val, int) or val == -1 or val == 0xFFFFFFFF: 
+        # bool subclasses int, but is neither a profile ID nor a WMI status.
+        if type(val) is not int or not 0 <= val < 0xFFFFFFFF:
             return None
         return val

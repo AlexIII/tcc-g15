@@ -44,6 +44,10 @@ FanIDOrder = new int[4] { 50, 59, 51, 60 };
 
 ```
 Thermal_Information(uint32) -> uint32   (return 0xFFFFFFFF - failure)
+    GetBalancedThermalProfileID          (return 151 or 160, depending on firmware)
+        arg = 10
+    GetCurrentThermalProfileID           (return active profile ID)
+        arg = 11
     GetSensorTemperature                (return *C)
         arg = (sensorId << 8) | 4
     GetFanRPMPercent                    (return RPMPercent)
